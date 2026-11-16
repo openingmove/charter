@@ -1,0 +1,99 @@
+{
+  "format": "charter-diagnostics/1",
+  "profile": "ci",
+  "diagnostics": [
+    {
+      "path": "docs/Books/Blank Title.md",
+      "line": 3,
+      "severity": "error",
+      "code": "schema/required",
+      "message": "Required field `title` is empty.",
+      "hint": "Set `title` to a string."
+    },
+    {
+      "path": "docs/Books/Broken.md",
+      "line": 3,
+      "severity": "error",
+      "code": "index/invalid-frontmatter",
+      "message": "Invalid YAML in frontmatter: expected ',' or ']', but got '<stream end>'.",
+      "hint": "Frontmatter is a YAML mapping between two `---` lines at the top of the file."
+    },
+    {
+      "path": "docs/Books/Magazine.md",
+      "line": 3,
+      "severity": "error",
+      "code": "schema/unknown-kind",
+      "message": "Kind `magazine` is not declared in the contract.",
+      "hint": "Declared kinds: `author`, `book`."
+    },
+    {
+      "path": "docs/Books/Misspelt Field.md",
+      "line": 5,
+      "severity": "error",
+      "code": "schema/unknown-field",
+      "message": "Field `pgaes` is not declared for kind `book`.",
+      "hint": "Did you mean `pages`?"
+    },
+    {
+      "path": "docs/Books/No Frontmatter.md",
+      "line": 1,
+      "severity": "error",
+      "code": "schema/missing-frontmatter",
+      "message": "File has no frontmatter, so its kind is unknown.",
+      "hint": "Start the file with frontmatter declaring `kind: <kind>` (declared kinds: `author`, `book`), or allow untyped files at this path with an `untyped: allow` path policy."
+    },
+    {
+      "path": "docs/Books/No Kind.md",
+      "line": 1,
+      "severity": "error",
+      "code": "schema/missing-kind",
+      "message": "Note has no `kind` field, so its kind is unknown.",
+      "hint": "Add `kind: <kind>` to the frontmatter. Declared kinds: `author`, `book`."
+    },
+    {
+      "path": "docs/Books/Typo.md",
+      "line": 2,
+      "severity": "error",
+      "code": "schema/unknown-kind",
+      "message": "Kind `boook` is not declared in the contract.",
+      "hint": "Did you mean `book`?"
+    },
+    {
+      "path": "docs/Books/Untitled.md",
+      "line": 1,
+      "severity": "error",
+      "code": "schema/required",
+      "message": "Required field `title` is missing.",
+      "hint": "Set `title` to a string."
+    },
+    {
+      "path": "docs/Books/Wrong Types.md",
+      "line": 3,
+      "severity": "error",
+      "code": "schema/type",
+      "message": "Field `title` must be a string, got number `1984`.",
+      "hint": null
+    },
+    {
+      "path": "docs/Books/Wrong Types.md",
+      "line": 4,
+      "severity": "error",
+      "code": "schema/type",
+      "message": "Field `pages` must be an integer, got text `many`.",
+      "hint": null
+    },
+    {
+      "path": "docs/Books/Wrong Types.md",
+      "line": 5,
+      "severity": "error",
+      "code": "schema/type",
+      "message": "Field `author` must be a link, got a list.",
+      "hint": "Quote the link so YAML reads it as text, e.g. \"[[Target]]\"."
+    }
+  ],
+  "summary": {
+    "errors": 11,
+    "warnings": 0,
+    "infos": 0
+  }
+}

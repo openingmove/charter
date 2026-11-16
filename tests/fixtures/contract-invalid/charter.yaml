@@ -1,0 +1,8 @@
+charter: 1
+root: docs
+
+kinds:
+  book:
+    fields:
+      title: {type: text, required: true}
+      pages: {type: int, requried: true}

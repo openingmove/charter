@@ -1,0 +1,75 @@
+charter: 1
+root: notes
+
+agents: {file: AGENTS.md}
+docs: {output: CHARTER.md}
+
+vocabularies:
+  season: [spring, summer, autumn, winter]
+  stage: [planned, sown, growing, harvested, failed]
+  sun: [full, partial, shade]
+
+tags:
+  allow: [edible, herb, "pollinator/*", "pest/*"]
+
+paths:
+  "Templates/**": {ignore: true}
+  "Journal/**": {kinds: [entry], edit: create-only, sweep: false}
+  "Plots/**": {kinds: [plot]}
+  "Growers/**": {kinds: [grower]}
+
+kinds:
+  grower:
+    description: "A person who tends plots in the garden."
+    path: "Growers/{title}.md"
+    template: Templates/Grower.md
+    fields:
+      kind: {type: string, required: true}
+      title: {type: string, required: true, matches_filename: true, description: "The grower's name."}
+      joined: {type: date, required: true, auto: today}
+
+  plot:
+    description: "A bed or container where crops are grown."
+    path: "Plots/{title}.md"
+    template: Templates/Plot.md
+    fields:
+      kind: {type: string, required: true}
+      title: {type: string, required: true, matches_filename: true, description: "The plot's name."}
+      sun: {enum: sun, required: true, default: full}
+      steward: {type: link, to: grower}
+      area_m2: {type: number, range: [0.5, 200]}
+
+  crop:
+    description: "A plant the garden grows, and what it needs."
+    path: "Crops/{title}.md"
+    template: Templates/Crop.md
+    fields:
+      kind: {type: string, required: true}
+      title: {type: string, required: true, matches_filename: true, description: "The crop's common name."}
+      lifecycle: {values: [annual, perennial], required: true, default: annual}
+      season: {enum: season, required: true}
+      stage: {enum: stage, required: true, default: planned}
+      plot: {type: link, to: plot, required: true}
+      companions: {type: list, of: link, to: crop}
+      sown: {type: date, allowed_when: {stage: [sown, growing, harvested]}}
+      reason: {type: string, required_when: {stage: failed}}
+      tags: {type: list, of: string}
+    variants:
+      perennial:
+        set: {lifecycle: perennial}
+        path: "Crops/Perennials/{title}.md"
+        template: Templates/Perennial.md
+        fields:
+          years_to_harvest: {type: int, required: true, range: [1, 30]}
+
+  entry:
+    description: "A dated line in the garden journal."
+    path: "Journal/{id} {title}.md"
+    template: Templates/Entry.md
+    fields:
+      kind: {type: string, required: true}
+      id: {type: int, required: true, unique: true, auto: next}
+      title: {type: string, required: true}
+      date: {type: date, required: true, auto: today}
+      crop: {type: link, to: crop}
+    collection: {contiguous: id}

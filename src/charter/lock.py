@@ -1,0 +1,207 @@
+"""`charter.lock`: the plugins charter vendored, where each came from, and the content hash of its directory."""
+
+import hashlib
+import os
+import re
+import unicodedata
+from collections.abc import Iterator, Mapping
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from charter import yamlsource
+from charter.diagnostics import Diagnostic, Severity
+from charter.files import contract_relative, replace_file
+from charter.schemacheck import errors as schema_errors
+from charter.schematext import located_message
+from charter.tree import decode
+
+LOCK_FILENAME = "charter.lock"
+# Where `charter plugin add` puts each plugin, as `<PLUGINS_DIR>/<id>`, relative to charter.yaml.
+PLUGINS_DIR = ".charter/plugins"
+# Never part of a plugin: version control, and the bytecode Python leaves beside modules it runs.
+IGNORED_NAMES = frozenset({".git", "__pycache__"})
+# git reads only this much of a file to decide whether it is binary.
+_BINARY_SNIFF = 8000
+_HEADER = "# Written by `charter plugin`; do not edit by hand.\n"
+_SHA256 = re.compile(r"[0-9a-f]{64}")
+_TEXT = {"type": "string", "minLength": 1}
+
+# Open to keys it does not know, so a lock written by a later charter still loads.
+LOCK_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "charter_lock": {"const": 1},
+        "plugins": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "version": _TEXT,
+                    "source": {
+                        "type": "object",
+                        "properties": {"git": _TEXT, "ref": _TEXT, "commit": _TEXT, "dev": {"const": True}},
+                    },
+                    "sha256": {"type": "string"},
+                },
+                "required": ["version", "source", "sha256"],
+            },
+        },
+    },
+    "required": ["charter_lock"],
+}
+
+
+@dataclass(frozen=True)
+class GitSource:
+    git: str
+    ref: str
+    # What `ref` pointed at when the plugin was added; None in a lock written by hand without it.
+    commit: str | None
+
+
+@dataclass(frozen=True)
+class DevSource:
+    pass
+
+
+@dataclass(frozen=True)
+class Locked:
+    version: str
+    source: GitSource | DevSource
+    sha256: str
+
+
+class LockError(Exception):
+    def __init__(self, diagnostics: list[Diagnostic]):
+        super().__init__("invalid lock")
+        self.diagnostics = diagnostics
+
+
+def parse_lock(content: bytes | None) -> dict[str, Locked]:
+    """The plugins locked in charter.lock's `content`, by id; none without a lock. Raises LockError."""
+    if content is None:
+        return {}
+
+    def problem(code: str, line: int | None, message: str) -> Diagnostic:
+        hint = "`charter plugin add` writes the lock; restore it from version control or add the plugins again."
+        return Diagnostic(LOCK_FILENAME, line, Severity.ERROR, code, message, hint)
+
+    try:
+        data, node = yamlsource.parse(decode(content))
+    except UnicodeDecodeError:
+        raise LockError([problem("contract/yaml", None, "The lock is not valid UTF-8 text.")]) from None
+    except yamlsource.YamlSyntaxError as syntax:
+        raise LockError([problem("contract/yaml", syntax.line, f"Invalid YAML: {syntax.message}.")]) from None
+    problems = [
+        problem("contract/invalid", yamlsource.line_of(node, list(error.absolute_path)), located_message(error)[0])
+        for error in schema_errors(LOCK_SCHEMA, data)
+    ]
+    if not problems:
+        problems = [
+            problem("contract/invalid", yamlsource.line_of(node, location), message)
+            for location, message in _entry_problems(data.get("plugins", {}))
+        ]
+    if problems:
+        raise LockError(problems)
+    return {plugin_id: _locked(entry) for plugin_id, entry in data.get("plugins", {}).items()}
+
+
+def _entry_problems(plugins: Mapping[str, Any]) -> Iterator[tuple[list[str], str]]:
+    for plugin_id, entry in plugins.items():
+        source = entry["source"]
+        if ("dev" in source) == ("git" in source) or ("git" in source and "ref" not in source):
+            yield (
+                ["plugins", plugin_id, "source"],
+                f"plugins.{plugin_id}.source: needs `git` and `ref` for a plugin from git, or `dev: true` for a "
+                "working copy.",
+            )
+        if not _SHA256.fullmatch(entry["sha256"]):
+            yield (
+                ["plugins", plugin_id, "sha256"],
+                f"plugins.{plugin_id}.sha256: expected 64 lowercase hexadecimal digits, got `{entry['sha256']}`.",
+            )
+
+
+def _locked(entry: Mapping[str, Any]) -> Locked:
+    source = entry["source"]
+    typed = DevSource() if "dev" in source else GitSource(source["git"], source["ref"], source.get("commit"))
+    return Locked(entry["version"], typed, entry["sha256"])
+
+
+def vendored_directory(plugin_id: str) -> str:
+    return f"{PLUGINS_DIR}/{plugin_id}"
+
+
+def is_vendored(plugin_id: str, source: str | None, locked: Mapping[str, Locked]) -> bool:
+    """Whether the lock covers a plugin: it is locked, and its `checks` entry, if it has one, uses the directory
+    `plugin add` installed it in. A `source` anywhere else is a plugin used in place, whatever the lock says."""
+    return plugin_id in locked and (source is None or contract_relative(source) == vendored_directory(plugin_id))
+
+
+def lock_bytes(plugins: Mapping[str, Locked]) -> bytes:
+    """What `write_lock` writes for `plugins`."""
+    data = {
+        "charter_lock": 1,
+        "plugins": {
+            plugin_id: {"version": entry.version, "source": _source_data(entry.source), "sha256": entry.sha256}
+            for plugin_id, entry in sorted(plugins.items())
+        },
+    }
+    return (_HEADER + yamlsource.dump(data)).encode("utf-8")
+
+
+def write_lock(directory: Path, plugins: Mapping[str, Locked]) -> None:
+    replace_file(directory / LOCK_FILENAME, lock_bytes(plugins))
+
+
+def _source_data(source: GitSource | DevSource) -> dict[str, Any]:
+    if isinstance(source, DevSource):
+        return {"dev": True}
+    data = {"git": source.git, "ref": source.ref}
+    return data if source.commit is None else {**data, "commit": source.commit}
+
+
+def symlink_reason(link: str) -> str:
+    """Why a plugin may not hold the symbolic link `link` (relative to the plugin), for `plugin add` and for a run."""
+    return (
+        f"holds a symbolic link, `{link}`; a plugin may not, as links read differently on each OS "
+        "and may point outside the plugin."
+    )
+
+
+def symlinks_in(directory: Path) -> list[str]:
+    """The relative POSIX paths of the symbolic links in a plugin directory."""
+    return sorted(relative for relative, file in _files(directory) if file.is_symlink())
+
+
+def content_hash(directory: Path) -> str | None:
+    """The sha256 of a plugin directory, the same on every OS and checkout; None when it holds a symbolic link,
+    which no plugin may (a link's target reads differently on each OS, and may lie outside the plugin).
+
+    It covers each file's path relative to `directory` (POSIX, Unicode NFC) and its bytes, in path order.
+    Git may check text files out with CRLF line endings (`core.autocrlf`, `eol` attributes), so CRLF counts as
+    LF in any file with no NUL byte in its first 8000 bytes, git's own test for binary. Anything named in
+    IGNORED_NAMES, empty directories (git does not track them) and file modes (Windows has none) are left out.
+    """
+    digest = hashlib.sha256()
+    for relative, file in sorted(_files(directory)):
+        if file.is_symlink():
+            return None
+        content = file.read_bytes()
+        if b"\0" not in content[:_BINARY_SNIFF]:
+            content = content.replace(b"\r\n", b"\n")
+        digest.update(relative.encode("utf-8") + b"\0" + hashlib.sha256(content).hexdigest().encode() + b"\n")
+    return digest.hexdigest()
+
+
+def _files(directory: Path) -> Iterator[tuple[str, Path]]:
+    for folder, folders, names in os.walk(directory):
+        here = Path(folder)
+        # os.walk lists a link to a directory among the folders but does not follow it.
+        links = [name for name in folders if (here / name).is_symlink()]
+        folders[:] = [name for name in folders if name not in IGNORED_NAMES and name not in links]
+        # A git worktree's `.git` is a file.
+        for name in (name for name in (*names, *links) if name not in IGNORED_NAMES):
+            file = here / name
+            yield unicodedata.normalize("NFC", file.relative_to(directory).as_posix()), file

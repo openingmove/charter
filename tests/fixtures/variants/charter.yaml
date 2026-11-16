@@ -1,0 +1,38 @@
+charter: 1
+root: docs
+
+vocabularies:
+  propulsion: [sail, motor, oar]
+  rig: [sloop, ketch, schooner]
+
+kinds:
+  harbour:
+    fields:
+      kind: {type: string, required: true}
+      title: {type: string, required: true}
+  boat:
+    path: "Boats/{title}.md"
+    fields:
+      kind: {type: string, required: true}
+      title: {type: string, required: true, matches_filename: true}
+      propulsion: {enum: propulsion, required: true}
+      harbour: {type: link, to: harbour}
+    variants:
+      sailboat:
+        set: {propulsion: sail}
+        path: "Sailboats/{title} ({rig}).md"
+        fields:
+          rig: {enum: rig, required: true}
+          masts: {type: int, range: [1, 5]}
+  log:
+    variant_by: log_type
+    fields:
+      kind: {type: string, required: true}
+      title: {type: string, required: true}
+    variants:
+      voyage:
+        path: "Logs/Voyages/{title}.md"
+        fields:
+          boat: {type: link, to: boat, required: true}
+      repair:
+        path: "Logs/Repairs/{title}.md"

@@ -1,0 +1,35 @@
+{
+  "format": "charter-diagnostics/1",
+  "profile": "ci",
+  "diagnostics": [
+    {
+      "path": "docs/Research/Mystery.md",
+      "line": 2,
+      "severity": "error",
+      "code": "schema/unknown-kind",
+      "message": "Kind `nonsense` is not declared in the contract.",
+      "hint": "Declared kinds: `author`, `book`, `research`."
+    },
+    {
+      "path": "docs/Research/Shared/Deep/Ada Marsh.md",
+      "line": 2,
+      "severity": "error",
+      "code": "paths/kind-not-allowed",
+      "message": "Kind `author` is not allowed by path policy `Research/Shared/**`, which allows `research`, `book`.",
+      "hint": "Move the note to a path that allows `author`, or add `author` to the `kinds` of `Research/Shared/**` in charter.yaml."
+    },
+    {
+      "path": "docs/Research/Stray Book.md",
+      "line": 3,
+      "severity": "error",
+      "code": "paths/kind-not-allowed",
+      "message": "Kind `book` is not allowed by path policy `Research/**`, which allows `research`.",
+      "hint": "Move the note to a path that allows `book`, or add `book` to the `kinds` of `Research/**` in charter.yaml."
+    }
+  ],
+  "summary": {
+    "errors": 3,
+    "warnings": 0,
+    "infos": 0
+  }
+}

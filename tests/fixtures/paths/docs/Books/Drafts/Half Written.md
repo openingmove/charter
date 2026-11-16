@@ -1,0 +1,5 @@
+---
+kind: book
+---
+
+Unfinished.

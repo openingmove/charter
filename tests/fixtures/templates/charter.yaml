@@ -1,0 +1,20 @@
+charter: 1
+root: docs
+
+paths:
+  "Templates/**": {ignore: true}
+
+kinds:
+  recipe:
+    template: Templates/Recipe.md
+    fields:
+      kind: {type: string, required: true}
+      title: {type: string, required: true}
+      serves: {type: int}
+      method: {values: [bake, braise, raw]}
+    variants:
+      bread:
+        set: {method: bake}
+        template: Templates/Bread.md
+        fields:
+          proof_hours: {type: number}

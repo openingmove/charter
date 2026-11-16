@@ -1,0 +1,5 @@
+charter_plugin: 1
+id: todo-free
+version: 1.2.0
+description: "Headings must not say TODO."
+run: ["uv", "run", "--script", "check.py"]

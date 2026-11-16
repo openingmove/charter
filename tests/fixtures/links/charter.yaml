@@ -1,0 +1,19 @@
+charter: 1
+root: docs
+
+links:
+  check_anchors: true
+
+paths:
+  "Templates/**": {ignore: true}
+  "Inbox/**": {untyped: allow}
+
+common_fields: [aliases]
+
+kinds:
+  harbour: {}
+  sailor: {}
+  boat:
+    fields:
+      home: {type: link, to: harbour}
+      crew: {type: list, of: link, to: sailor}

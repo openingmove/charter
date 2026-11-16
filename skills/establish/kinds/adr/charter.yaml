@@ -1,0 +1,25 @@
+# Example kind: architecture decision record (ADR).
+# Read it to inform a proposal; adapt names, fields and values to the human's domain.
+charter: 1
+root: .
+
+vocabularies:
+  adr-status: [proposed, accepted, superseded, deprecated]
+
+paths:
+  "Templates/**": {ignore: true}
+  "adr/**": {kinds: [adr]}
+
+kinds:
+  adr:
+    description: "A technical decision, why it was taken and what it costs; superseded, never rewritten."
+    path: "adr/{id} {title}.md"
+    template: Templates/ADR.md
+    fields:
+      kind: {type: string, required: true}
+      id: {type: int, required: true, unique: true, auto: next}
+      title: {type: string, required: true, matches_filename: true, description: "The decision, as a short statement."}
+      status: {enum: adr-status, required: true, default: proposed}
+      date: {type: date, required: true, auto: today, description: "The day the status last changed."}
+      superseded_by: {type: link, to: adr, required_when: {status: superseded}, allowed_when: {status: [superseded]}}
+    collection: {contiguous: id}

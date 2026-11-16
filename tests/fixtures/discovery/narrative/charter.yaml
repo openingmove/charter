@@ -1,0 +1,6 @@
+charter: 1
+root: notes
+kinds:
+  chapter:
+    fields:
+      kind: {type: string, required: true}

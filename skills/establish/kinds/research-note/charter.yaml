@@ -1,0 +1,26 @@
+# Example kind: research note, a question followed to an answer, with its sources.
+# Read it to inform a proposal; adapt names, fields and values to the human's domain.
+charter: 1
+root: .
+
+vocabularies:
+  research-status: [open, answered, abandoned]
+  confidence: [low, medium, high]
+
+paths:
+  "Templates/**": {ignore: true}
+  "research/**": {kinds: [research]}
+
+kinds:
+  research:
+    description: "A question being looked into, what was found, and how far to trust it."
+    path: "research/{title}.md"
+    template: Templates/Research.md
+    fields:
+      kind: {type: string, required: true}
+      title: {type: string, required: true, matches_filename: true, description: "A short name for the topic."}
+      question: {type: string, required: true, description: "The question, as a question."}
+      status: {enum: research-status, required: true, default: open}
+      confidence: {enum: confidence, required_when: {status: answered}, allowed_when: {status: [answered]}}
+      sources: {type: list, of: string, description: "Where the findings come from: a title, an author or a link."}
+      follows: {type: link, to: research, description: "An earlier note this one builds on."}

@@ -1,0 +1,61 @@
+charter: 1
+root: docs
+agents: {file: AGENTS.md}
+
+paths:
+  "Templates/**": {ignore: true}
+  "Recipes/**": {kinds: [recipe]}
+  "Recipes/Drafts/**": {untyped: allow, links: skip}
+
+vocabularies:
+  stage: [idea, tested, published]
+
+common_fields:
+  tags: {type: list, of: string, description: "Free-form labels."}
+
+kinds:
+  recipe:
+    description: "A dish worth cooking again."
+    path: "Recipes/{id} {title}.md"
+    template: Templates/Recipe.md
+    fields:
+      kind: {type: string, required: true}
+      id: {type: int, required: true, unique: true, range: [1, 99], auto: next}
+      title: {type: string, required: true, matches_filename: true, description: "The dish's name."}
+      stage: {enum: stage, required: true, default: idea}
+      method: {values: [bake, fry, raw], required: true}
+      serves: {type: int, range: [1, 12]}
+      code: {type: string, pattern: 'R\d+|X'}
+      published_in: {type: string, required_when: {stage: published}}
+      tested_on: {type: date, allowed_when: {stage: [tested, published]}}
+      added: {type: date, required: true, auto: today}
+    variants:
+      bread:
+        description: "A recipe that rises."
+        set: {method: bake}
+        template: Templates/Bread.md
+        fields:
+          proof_hours: {type: number, required: true}
+    collection: {count: 50, contiguous: id}
+
+  pantry:
+    variant_by: shelf
+    unknown_fields: allow
+    path: "Pantry/{shelf}/{title}.md"
+    fields:
+      kind: {type: string, required: true}
+      title: {type: string, required: true}
+      stocks: {type: list, of: link, to: recipe}
+    variants:
+      dry: {}
+      cold: {path: "Fridge/{title}.md"}
+
+  note:
+    fields:
+      kind: {type: string, required: true}
+      title: {type: string}
+      since: {type: date, default: 2026-01-31}
+
+checks:
+  tags: {enabled: false}
+  links: {severity: warning}

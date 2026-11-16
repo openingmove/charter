@@ -1,0 +1,14 @@
+{
+  "name": "charter",
+  "owner": {
+    "name": "charter"
+  },
+  "description": "Skills that help establish, migrate and evolve a charter knowledge base's contract.",
+  "plugins": [
+    {
+      "name": "charter",
+      "source": "./",
+      "description": "Skills for the contract of a charter knowledge base."
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "format": "charter-diagnostics/1",
+  "profile": "ci",
+  "diagnostics": [
+    {
+      "path": "docs/Boats/Gull.md",
+      "line": 2,
+      "severity": "error",
+      "code": "filenames/path",
+      "message": "The path does not match the `boat/sailboat` path pattern `Sailboats/{title} ({rig}).md`; expected `docs/Sailboats/Gull (ketch).md`.",
+      "hint": "Rename the file to `docs/Sailboats/Gull (ketch).md`, or correct the fields the pattern uses (`title`, `rig`)."
+    },
+    {
+      "path": "docs/Boats/Puffin.md",
+      "line": 5,
+      "severity": "error",
+      "code": "schema/unknown-field",
+      "message": "Field `rig` is not declared for kind `boat`.",
+      "hint": "Remove it, or declare it under `kinds.boat.fields` or `common_fields` in charter.yaml."
+    },
+    {
+      "path": "docs/Logs/Hull Patch.md",
+      "line": 3,
+      "severity": "error",
+      "code": "schema/unknown-variant",
+      "message": "`log_type` is `refit`, which names no variant of kind `log`.",
+      "hint": "Variants of `log`: `voyage`, `repair`."
+    },
+    {
+      "path": "docs/Logs/Repairs/Mast.md",
+      "line": 5,
+      "severity": "error",
+      "code": "schema/unknown-field",
+      "message": "Field `boat` is not declared for variant `log/repair`.",
+      "hint": "Remove it, or declare it under `kinds.log.variants.repair.fields` or `common_fields` in charter.yaml."
+    },
+    {
+      "path": "docs/Logs/Untitled.md",
+      "line": 1,
+      "severity": "error",
+      "code": "schema/required",
+      "message": "Required field `log_type` is missing.",
+      "hint": "Set `log_type` to a string, one of `voyage`, `repair`."
+    },
+    {
+      "path": "docs/Logs/Voyages/Storm.md",
+      "line": 5,
+      "severity": "error",
+      "code": "links/wrong-kind",
+      "message": "Field `boat` links to `docs/Harbours/Quay.md`, which is kind `harbour`; it must link to a note of kind `boat`.",
+      "hint": "Link to a note of kind `boat`, or change `to` for this field in charter.yaml."
+    },
+    {
+      "path": "docs/Sailboats/Tern.md",
+      "line": 1,
+      "severity": "error",
+      "code": "schema/required",
+      "message": "Required field `rig` is missing.",
+      "hint": "Set `rig` to a string, one of `sloop`, `ketch`, `schooner`."
+    }
+  ],
+  "summary": {
+    "errors": 7,
+    "warnings": 0,
+    "infos": 0
+  }
+}

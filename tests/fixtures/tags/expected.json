@@ -1,0 +1,27 @@
+{
+  "format": "charter-diagnostics/1",
+  "profile": "ci",
+  "diagnostics": [
+    {
+      "path": "docs/Logs/Storm.md",
+      "line": 4,
+      "severity": "error",
+      "code": "tags/not-allowed",
+      "message": "Tag `weather` is not allowed; `tags.allow` permits `voyage/*`, `draft`.",
+      "hint": "Use an allowed tag, or add a glob matching `weather` to `tags.allow` in charter.yaml."
+    },
+    {
+      "path": "docs/Logs/Storm.md",
+      "line": 9,
+      "severity": "error",
+      "code": "tags/not-allowed",
+      "message": "Tag `todo` is not allowed; `tags.allow` permits `voyage/*`, `draft`.",
+      "hint": "Use an allowed tag, or add a glob matching `todo` to `tags.allow` in charter.yaml."
+    }
+  ],
+  "summary": {
+    "errors": 2,
+    "warnings": 0,
+    "infos": 0
+  }
+}

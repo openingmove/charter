@@ -1,0 +1,25 @@
+name: charter
+description: Validate a Markdown knowledge base against its charter.yaml contract, the commits of a pull request or push against its edit policies, and check that the generated rulebook is current.
+inputs:
+  ref:
+    description: The branch, tag or commit of charter to install.
+    default: main
+  source:
+    description: The git repository to install charter from.
+    default: https://github.com/openingmove/charter
+  config:
+    description: Path to the contract file, if it is not ./charter.yaml.
+    default: ""
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@v6
+    - run: uv tool install "git+$CHARTER_SOURCE@$CHARTER_REF"
+      shell: bash
+      env:
+        CHARTER_SOURCE: ${{ inputs.source }}
+        CHARTER_REF: ${{ inputs.ref }}
+    - run: uv run --no-project "${{ github.action_path }}/action/run.py"
+      shell: bash
+      env:
+        CHARTER_CONFIG: ${{ inputs.config }}

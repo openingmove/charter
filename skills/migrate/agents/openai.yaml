@@ -1,0 +1,6 @@
+interface:
+  display_name: "Migrate"
+  short_description: "Bring existing files into line with a draft charter contract, then install it"
+
+policy:
+  allow_implicit_invocation: false

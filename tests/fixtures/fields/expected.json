@@ -1,0 +1,83 @@
+{
+  "format": "charter-diagnostics/1",
+  "profile": "ci",
+  "diagnostics": [
+    {
+      "path": "docs/Market.md",
+      "line": 3,
+      "severity": "error",
+      "code": "schema/pattern",
+      "message": "Field `code` is `s01`, which does not match the pattern `S\\d{3}`.",
+      "hint": "The whole value must match the pattern."
+    },
+    {
+      "path": "docs/Market.md",
+      "line": 4,
+      "severity": "error",
+      "code": "schema/enum",
+      "message": "Field `stage` is `drafty`, which is not in vocabulary `stage`.",
+      "hint": "Did you mean `draft`?"
+    },
+    {
+      "path": "docs/Market.md",
+      "line": 5,
+      "severity": "error",
+      "code": "schema/enum",
+      "message": "Item 2 of `tones` is `bitter`, which is not in vocabulary `tone`.",
+      "hint": "Allowed values: `sweet`, `melancholy`, `dark`."
+    },
+    {
+      "path": "docs/Market.md",
+      "line": 6,
+      "severity": "error",
+      "code": "schema/range",
+      "message": "Field `minute` is 75, outside the range 0 to 60.",
+      "hint": "Use a value from 0 to 60 inclusive."
+    },
+    {
+      "path": "docs/Market.md",
+      "line": 7,
+      "severity": "error",
+      "code": "schema/item-type",
+      "message": "Item 2 of `weights` must be a number, got text `heavy`.",
+      "hint": null
+    },
+    {
+      "path": "docs/Market.md",
+      "line": 7,
+      "severity": "error",
+      "code": "schema/range",
+      "message": "Item 3 of `weights` is 1.5, outside the range 0 to 1.",
+      "hint": "Use a value from 0 to 1 inclusive."
+    },
+    {
+      "path": "docs/Market.md",
+      "line": 8,
+      "severity": "error",
+      "code": "schema/enum",
+      "message": "Field `size` is `medium`, which is not in the allowed values.",
+      "hint": "Allowed values: `small`, `large`."
+    },
+    {
+      "path": "docs/Market.md",
+      "line": 9,
+      "severity": "error",
+      "code": "schema/not-allowed",
+      "message": "Field `locked_on` is only allowed when `stage` is `locked` or `cut`.",
+      "hint": "Remove `locked_on`, or change the fields it depends on."
+    },
+    {
+      "path": "docs/Orchard.md",
+      "line": 1,
+      "severity": "error",
+      "code": "schema/required",
+      "message": "Field `cut_reason` is missing, but is required when `stage` is `cut`.",
+      "hint": "Set `cut_reason` to a string."
+    }
+  ],
+  "summary": {
+    "errors": 9,
+    "warnings": 0,
+    "infos": 0
+  }
+}

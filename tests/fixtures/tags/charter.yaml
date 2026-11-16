@@ -1,0 +1,10 @@
+charter: 1
+root: docs
+tags: {allow: ["voyage/*", draft], inline: true}
+common_fields: [tags]
+
+kinds:
+  log:
+    fields:
+      kind: {type: string, required: true}
+      title: {type: string, required: true}

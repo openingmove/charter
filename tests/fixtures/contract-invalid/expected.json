@@ -1,0 +1,26 @@
+{
+  "format": "charter-diagnostics/1",
+  "diagnostics": [
+    {
+      "path": "charter.yaml",
+      "line": 7,
+      "severity": "error",
+      "code": "contract/invalid",
+      "message": "kinds.book.fields.title.type: `text` is not one of `string`, `int`, `number`, `bool`, `date`, `link`, `list`.",
+      "hint": null
+    },
+    {
+      "path": "charter.yaml",
+      "line": 8,
+      "severity": "error",
+      "code": "contract/invalid",
+      "message": "kinds.book.fields.pages: unknown key `requried`.",
+      "hint": "Did you mean `required`?"
+    }
+  ],
+  "summary": {
+    "errors": 2,
+    "warnings": 0,
+    "infos": 0
+  }
+}

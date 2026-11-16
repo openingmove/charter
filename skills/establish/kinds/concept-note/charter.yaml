@@ -1,0 +1,25 @@
+# Example kind: concept note, one idea per note, linked to the ideas around it.
+# Read it to inform a proposal; adapt names, fields and values to the human's domain.
+charter: 1
+root: .
+
+vocabularies:
+  concept-area: [colony, hive, forage, health]
+  maturity: [seedling, growing, evergreen]
+
+paths:
+  "Templates/**": {ignore: true}
+  "concepts/**": {kinds: [concept]}
+
+kinds:
+  concept:
+    description: "One idea, explained in the author's own words and linked to the ideas it touches."
+    path: "concepts/{title}.md"
+    template: Templates/Concept.md
+    fields:
+      kind: {type: string, required: true}
+      title: {type: string, required: true, matches_filename: true, description: "The idea's name."}
+      summary: {type: string, required: true, description: "The idea in one sentence."}
+      area: {enum: concept-area, required: true}
+      maturity: {enum: maturity, required: true, default: seedling, description: "How settled the note is."}
+      related: {type: list, of: link, to: concept}

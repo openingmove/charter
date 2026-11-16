@@ -1,0 +1,20 @@
+# Example kind: meeting note, one per meeting, named by its date.
+# Read it to inform a proposal; adapt names, fields and values to the human's domain.
+charter: 1
+root: .
+
+paths:
+  "Templates/**": {ignore: true}
+  "meetings/**": {kinds: [meeting]}
+
+kinds:
+  meeting:
+    description: "What was said and agreed at one meeting, and who does what next."
+    path: "meetings/{date} {title}.md"
+    template: Templates/Meeting.md
+    fields:
+      kind: {type: string, required: true}
+      title: {type: string, required: true, description: "What the meeting was for."}
+      date: {type: date, required: true, auto: today, description: "The day the meeting took place."}
+      attendees: {type: list, of: string, required: true}
+      previous: {type: link, to: meeting, description: "The meeting this one follows up."}

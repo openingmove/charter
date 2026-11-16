@@ -1,0 +1,19 @@
+charter: 1
+root: docs
+
+vocabularies:
+  stage: [idea, draft, locked, cut]
+  tone: [sweet, melancholy, dark]
+
+kinds:
+  scene:
+    fields:
+      kind: {type: string, required: true}
+      code: {type: string, required: true, pattern: 'S\d{3}'}
+      stage: {enum: stage, required: true}
+      tones: {type: list, of: enum, enum: tone}
+      minute: {type: int, range: [0, 60]}
+      weights: {type: list, of: number, range: [0, 1]}
+      size: {values: [small, large]}
+      cut_reason: {type: string, required_when: {stage: cut}}
+      locked_on: {type: date, allowed_when: {stage: [locked, cut]}}

@@ -1,0 +1,21 @@
+charter: 1
+root: notes
+
+docs: {}
+
+paths:
+  "Templates/**": {ignore: true}
+
+kinds:
+  log:
+    description: "A dated log entry."
+    template: Templates/Log.md
+    path: "{title}.md"
+    structure_cutoff:
+      field: created
+      date: 2026-01-01
+    fields:
+      kind: {type: string, required: true}
+      title: {type: string, required: true, matches_filename: true}
+      created: {type: date, required: true}
+      related: {type: link}

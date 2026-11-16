@@ -1,0 +1,4 @@
+---
+kind: research
+topic: Lighthouses
+---

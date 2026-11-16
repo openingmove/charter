@@ -1,0 +1,15 @@
+- id: charter
+  name: charter validate
+  description: Validate the staged files of a Markdown knowledge base against its charter.yaml contract.
+  entry: charter validate --staged --commit-msg-installed
+  language: python
+  stages: [pre-commit]
+  pass_filenames: false
+  always_run: true
+- id: charter-commit-msg
+  name: charter edit policies
+  description: Check the edit policies of the staged change, honouring Charter-Allow trailers in the commit message.
+  entry: charter validate --staged --commit-msg
+  language: python
+  stages: [commit-msg]
+  always_run: true

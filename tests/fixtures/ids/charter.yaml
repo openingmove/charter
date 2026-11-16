@@ -1,0 +1,20 @@
+charter: 1
+root: docs
+
+kinds:
+  thing:
+    fields:
+      kind: {type: string, required: true}
+      id: {type: int, required: true, unique: true, range: [1, 100]}
+      title: {type: string, required: true, unique: true}
+      category: {values: [place, chain], required: true}
+    variants:
+      chain:
+        set: {category: chain}
+        fields:
+          links: {type: int, required: true}
+    collection: {count: 6, contiguous: id}
+  zone:
+    fields:
+      kind: {type: string, required: true}
+      id: {type: int, required: true, unique: true}

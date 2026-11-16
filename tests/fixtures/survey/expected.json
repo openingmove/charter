@@ -1,0 +1,538 @@
+{
+  "format": "charter-survey/1",
+  "totals": {
+    "files": 11,
+    "folders": 5,
+    "with_frontmatter": 7
+  },
+  "files": [
+    {
+      "path": "AGENTS.md",
+      "folder": ".",
+      "has_frontmatter": false,
+      "frontmatter_error": null,
+      "problem": null,
+      "fields": {}
+    },
+    {
+      "path": "CLAUDE.md",
+      "folder": ".",
+      "has_frontmatter": false,
+      "frontmatter_error": null,
+      "problem": null,
+      "fields": {}
+    },
+    {
+      "path": "house-rules.md",
+      "folder": ".",
+      "has_frontmatter": false,
+      "frontmatter_error": null,
+      "problem": null,
+      "fields": {}
+    },
+    {
+      "path": "journal/2026-01-05-watering.md",
+      "folder": "journal",
+      "has_frontmatter": true,
+      "frontmatter_error": null,
+      "problem": null,
+      "fields": {
+        "date": "date",
+        "kind": "string",
+        "plant": "string"
+      }
+    },
+    {
+      "path": "journal/2026-01-06-pruning.md",
+      "folder": "journal",
+      "has_frontmatter": true,
+      "frontmatter_error": null,
+      "problem": null,
+      "fields": {
+        "date": "date",
+        "helpers": "mapping",
+        "kind": "string",
+        "plant": "string"
+      }
+    },
+    {
+      "path": "notes/broken.md",
+      "folder": "notes",
+      "has_frontmatter": true,
+      "frontmatter_error": "Invalid YAML in frontmatter: expected ',' or ']', but got '<stream end>'.",
+      "problem": null,
+      "fields": {}
+    },
+    {
+      "path": "notes/nested/deep/greenhouse.md",
+      "folder": "notes/nested/deep",
+      "has_frontmatter": true,
+      "frontmatter_error": null,
+      "problem": null,
+      "fields": {
+        "empty": "null",
+        "flag": "boolean",
+        "kind": "string"
+      }
+    },
+    {
+      "path": "plants/Basil.md",
+      "folder": "plants",
+      "has_frontmatter": true,
+      "frontmatter_error": null,
+      "problem": null,
+      "fields": {
+        "height": "string",
+        "kind": "string",
+        "light": "string",
+        "status": "string",
+        "tags": "list"
+      }
+    },
+    {
+      "path": "plants/Fern.md",
+      "folder": "plants",
+      "has_frontmatter": true,
+      "frontmatter_error": null,
+      "problem": null,
+      "fields": {
+        "height": "number",
+        "kind": "string",
+        "light": "string",
+        "status": "string",
+        "tags": "list"
+      }
+    },
+    {
+      "path": "plants/Mint.md",
+      "folder": "plants",
+      "has_frontmatter": false,
+      "frontmatter_error": null,
+      "problem": null,
+      "fields": {}
+    },
+    {
+      "path": "plants/Monstera.md",
+      "folder": "plants",
+      "has_frontmatter": true,
+      "frontmatter_error": null,
+      "problem": null,
+      "fields": {
+        "height": "number",
+        "kind": "string",
+        "light": "string",
+        "planted": "date",
+        "status": "string",
+        "tags": "list"
+      }
+    }
+  ],
+  "folders": [
+    {
+      "folder": ".",
+      "files": 3,
+      "filename_shapes": {
+        "Title.md": 2,
+        "kebab-title.md": 1
+      },
+      "fields": [],
+      "outline": {
+        "headings": [
+          "# {{title}}"
+        ],
+        "files": 2
+      }
+    },
+    {
+      "folder": "journal",
+      "files": 2,
+      "filename_shapes": {
+        "NNNN-NN-NN-word.md": 2
+      },
+      "fields": [
+        {
+          "name": "date",
+          "files": 2
+        },
+        {
+          "name": "helpers",
+          "files": 1
+        },
+        {
+          "name": "kind",
+          "files": 2
+        },
+        {
+          "name": "plant",
+          "files": 2
+        }
+      ],
+      "outline": {
+        "headings": [
+          "# {{title}}"
+        ],
+        "files": 2
+      }
+    },
+    {
+      "folder": "notes",
+      "files": 1,
+      "filename_shapes": {
+        "word.md": 1
+      },
+      "fields": [],
+      "outline": {
+        "headings": [
+          "# {{title}}"
+        ],
+        "files": 1
+      }
+    },
+    {
+      "folder": "notes/nested/deep",
+      "files": 1,
+      "filename_shapes": {
+        "word.md": 1
+      },
+      "fields": [
+        {
+          "name": "empty",
+          "files": 1
+        },
+        {
+          "name": "flag",
+          "files": 1
+        },
+        {
+          "name": "kind",
+          "files": 1
+        }
+      ],
+      "outline": {
+        "headings": [
+          "# {{title}}"
+        ],
+        "files": 1
+      }
+    },
+    {
+      "folder": "plants",
+      "files": 4,
+      "filename_shapes": {
+        "Title.md": 4
+      },
+      "fields": [
+        {
+          "name": "height",
+          "files": 3
+        },
+        {
+          "name": "kind",
+          "files": 3
+        },
+        {
+          "name": "light",
+          "files": 3
+        },
+        {
+          "name": "planted",
+          "files": 1
+        },
+        {
+          "name": "status",
+          "files": 3
+        },
+        {
+          "name": "tags",
+          "files": 3
+        }
+      ],
+      "outline": {
+        "headings": [
+          "# {{title}}",
+          "## Care",
+          "## History"
+        ],
+        "files": 3
+      }
+    }
+  ],
+  "fields": {
+    "date": {
+      "files": 2,
+      "types": {
+        "date": 2
+      },
+      "values": [
+        {
+          "value": "2026-01-05",
+          "count": 1,
+          "files": [
+            "journal/2026-01-05-watering.md"
+          ]
+        },
+        {
+          "value": "2026-01-06",
+          "count": 1,
+          "files": [
+            "journal/2026-01-06-pruning.md"
+          ]
+        }
+      ],
+      "distinct": 2,
+      "truncated": false
+    },
+    "empty": {
+      "files": 1,
+      "types": {
+        "null": 1
+      },
+      "values": [
+        {
+          "value": null,
+          "count": 1,
+          "files": [
+            "notes/nested/deep/greenhouse.md"
+          ]
+        }
+      ],
+      "distinct": 1,
+      "truncated": false
+    },
+    "flag": {
+      "files": 1,
+      "types": {
+        "boolean": 1
+      },
+      "values": [
+        {
+          "value": true,
+          "count": 1,
+          "files": [
+            "notes/nested/deep/greenhouse.md"
+          ]
+        }
+      ],
+      "distinct": 1,
+      "truncated": false
+    },
+    "height": {
+      "files": 3,
+      "types": {
+        "number": 2,
+        "string": 1
+      },
+      "values": [
+        {
+          "value": 120,
+          "count": 1,
+          "files": [
+            "plants/Monstera.md"
+          ]
+        },
+        {
+          "value": 30,
+          "count": 1,
+          "files": [
+            "plants/Fern.md"
+          ]
+        },
+        {
+          "value": "tall",
+          "count": 1,
+          "files": [
+            "plants/Basil.md"
+          ]
+        }
+      ],
+      "distinct": 3,
+      "truncated": false
+    },
+    "helpers": {
+      "files": 1,
+      "types": {
+        "mapping": 1
+      },
+      "values": [],
+      "distinct": 0,
+      "truncated": false
+    },
+    "kind": {
+      "files": 6,
+      "types": {
+        "string": 6
+      },
+      "values": [
+        {
+          "value": "plant",
+          "count": 3,
+          "files": [
+            "plants/Basil.md",
+            "plants/Fern.md",
+            "plants/Monstera.md"
+          ]
+        },
+        {
+          "value": "entry",
+          "count": 2,
+          "files": [
+            "journal/2026-01-05-watering.md",
+            "journal/2026-01-06-pruning.md"
+          ]
+        },
+        {
+          "value": "idea",
+          "count": 1,
+          "files": [
+            "notes/nested/deep/greenhouse.md"
+          ]
+        }
+      ],
+      "distinct": 3,
+      "truncated": false
+    },
+    "light": {
+      "files": 3,
+      "types": {
+        "string": 3
+      },
+      "values": [
+        {
+          "value": "low",
+          "count": 2,
+          "files": [
+            "plants/Fern.md",
+            "plants/Monstera.md"
+          ]
+        },
+        {
+          "value": "high",
+          "count": 1,
+          "files": [
+            "plants/Basil.md"
+          ]
+        }
+      ],
+      "distinct": 2,
+      "truncated": false
+    },
+    "plant": {
+      "files": 2,
+      "types": {
+        "string": 2
+      },
+      "values": [
+        {
+          "value": "[[Basil]]",
+          "count": 1,
+          "files": [
+            "journal/2026-01-06-pruning.md"
+          ]
+        },
+        {
+          "value": "[[Fern]]",
+          "count": 1,
+          "files": [
+            "journal/2026-01-05-watering.md"
+          ]
+        }
+      ],
+      "distinct": 2,
+      "truncated": false
+    },
+    "planted": {
+      "files": 1,
+      "types": {
+        "date": 1
+      },
+      "values": [
+        {
+          "value": "2026-01-05",
+          "count": 1,
+          "files": [
+            "plants/Monstera.md"
+          ]
+        }
+      ],
+      "distinct": 1,
+      "truncated": false
+    },
+    "status": {
+      "files": 3,
+      "types": {
+        "string": 3
+      },
+      "values": [
+        {
+          "value": "active",
+          "count": 2,
+          "files": [
+            "plants/Fern.md",
+            "plants/Monstera.md"
+          ]
+        },
+        {
+          "value": "actve",
+          "count": 1,
+          "files": [
+            "plants/Basil.md"
+          ]
+        }
+      ],
+      "distinct": 2,
+      "truncated": false
+    },
+    "tags": {
+      "files": 3,
+      "types": {
+        "list": 3
+      },
+      "values": [
+        {
+          "value": "indoor",
+          "count": 2,
+          "files": [
+            "plants/Fern.md",
+            "plants/Monstera.md"
+          ]
+        },
+        {
+          "value": "kitchen",
+          "count": 1,
+          "files": [
+            "plants/Basil.md"
+          ]
+        },
+        {
+          "value": "tropical",
+          "count": 1,
+          "files": [
+            "plants/Monstera.md"
+          ]
+        }
+      ],
+      "distinct": 3,
+      "truncated": false
+    }
+  },
+  "links": {
+    "markdown": {
+      "links": 1,
+      "files": 1
+    },
+    "wikilink": {
+      "links": 6,
+      "files": 4
+    }
+  },
+  "agent_files": [
+    "AGENTS.md",
+    "CLAUDE.md"
+  ],
+  "rulebooks": [
+    {
+      "path": "house-rules.md",
+      "reason": "filename"
+    }
+  ]
+}

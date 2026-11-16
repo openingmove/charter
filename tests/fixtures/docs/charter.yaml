@@ -1,0 +1,22 @@
+charter: 1
+root: docs
+
+agents:
+  file: AGENTS.md
+docs:
+  output: CHARTER.md
+
+paths:
+  "Books/**": {kinds: [book]}
+
+kinds:
+  book:
+    description: "A book on the shelf."
+    path: "Books/{title}.md"
+    fields:
+      kind: {type: string, required: true}
+      title: {type: string, required: true, matches_filename: true}
+      pages: {type: int, range: [1, 5000]}
+
+checks:
+  tags: {enabled: false}

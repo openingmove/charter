@@ -1,0 +1,31 @@
+charter: 1
+root: docs
+
+vocabularies:
+  status: [open, resolved, deferred, dropped]
+
+kinds:
+  decision:
+    path: "Decisions/{id} {title}{status|suffix}.md"
+    suffix: {deferred: " (Deferred)", dropped: " (Dropped)"}
+    fields:
+      kind: {type: string, required: true}
+      id: {type: int, required: true}
+      title: {type: string, required: true}
+      status: {enum: status, required: true}
+  thing:
+    path: "Things/{title}.md"
+    fields:
+      kind: {type: string, required: true}
+      title: {type: string, required: true, matches_filename: true}
+  log:
+    path: "Logs/{area|lower}/{day} {title|slug}.md"
+    fields:
+      kind: {type: string, required: true}
+      area: {type: string, required: true}
+      day: {type: date, required: true}
+      title: {type: string, required: true}
+  person:
+    fields:
+      kind: {type: string, required: true}
+      name: {type: string, required: true, matches_filename: true}

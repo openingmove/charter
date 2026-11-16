@@ -1,0 +1,25 @@
+# Example kind: decision record for a group (not software): a question, who decides, when to look again.
+# Read it to inform a proposal; adapt names, fields and values to the human's domain.
+charter: 1
+root: .
+
+vocabularies:
+  decision-status: [open, decided, revisit]
+
+paths:
+  "Templates/**": {ignore: true}
+  "decisions/**": {kinds: [decision]}
+
+kinds:
+  decision:
+    description: "A question a group settled (or still has to), with who owns it and when to look again."
+    path: "decisions/{title}.md"
+    template: Templates/Decision.md
+    fields:
+      kind: {type: string, required: true}
+      title: {type: string, required: true, matches_filename: true, description: "The question, or the choice made."}
+      status: {enum: decision-status, required: true, default: open}
+      owner: {type: string, required: true, description: "The person who answers for this decision."}
+      decided: {type: date, required_when: {status: [decided, revisit]}, allowed_when: {status: [decided, revisit]}}
+      review_by: {type: date, description: "The day to look at this again, if it should be looked at again."}
+      related: {type: list, of: link, to: decision}

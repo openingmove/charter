@@ -1,0 +1,51 @@
+{
+  "format": "charter-diagnostics/1",
+  "profile": "ci",
+  "diagnostics": [
+    {
+      "path": "notes/Later.md",
+      "line": null,
+      "severity": "error",
+      "code": "structure/missing-heading",
+      "message": "Heading `## Details` from the template `notes/Templates/Log.md` is missing.",
+      "hint": "Add `## Details` after the `## Summary` section."
+    },
+    {
+      "path": "notes/Legacy link.md",
+      "line": 5,
+      "severity": "error",
+      "code": "links/unresolved",
+      "message": "Link `[[Nowhere]]` matches no note by path, basename or alias.",
+      "hint": "Check the spelling, or create the note."
+    },
+    {
+      "path": "notes/On the day.md",
+      "line": null,
+      "severity": "error",
+      "code": "structure/missing-heading",
+      "message": "Heading `## Details` from the template `notes/Templates/Log.md` is missing.",
+      "hint": "Add `## Details` after the `## Summary` section."
+    },
+    {
+      "path": "notes/Undated.md",
+      "line": null,
+      "severity": "error",
+      "code": "structure/missing-heading",
+      "message": "Heading `## Details` from the template `notes/Templates/Log.md` is missing.",
+      "hint": "Add `## Details` after the `## Summary` section."
+    },
+    {
+      "path": "notes/Undated.md",
+      "line": 1,
+      "severity": "error",
+      "code": "schema/required",
+      "message": "Required field `created` is missing.",
+      "hint": "Set `created` to a date (YYYY-MM-DD)."
+    }
+  ],
+  "summary": {
+    "errors": 5,
+    "warnings": 0,
+    "infos": 0
+  }
+}

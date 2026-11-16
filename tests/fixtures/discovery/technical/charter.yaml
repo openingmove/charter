@@ -1,0 +1,10 @@
+charter: 1
+root: notes
+docs: {output: CHARTER.md}
+kinds:
+  spec:
+    path: "{title}.md"
+    fields:
+      kind: {type: string, required: true}
+      title: {type: string, required: true}
+      status: {type: string, required: true}

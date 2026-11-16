@@ -1,0 +1,51 @@
+{
+  "format": "charter-diagnostics/1",
+  "profile": "ci",
+  "diagnostics": [
+    {
+      "path": "docs/Recipes/Sourdough.md",
+      "line": null,
+      "severity": "error",
+      "code": "structure/missing-heading",
+      "message": "Heading `## Proving` from the template `docs/Templates/Bread.md` is missing.",
+      "hint": "Add `## Proving` after the `## Ingredients` section."
+    },
+    {
+      "path": "docs/Recipes/Stew.md",
+      "line": 7,
+      "severity": "error",
+      "code": "residue/guide",
+      "message": "Guide comment left in the note: `one sentence on why this dish is worth making`.",
+      "hint": "Follow the guidance, then delete the comment."
+    },
+    {
+      "path": "docs/Recipes/Stew.md",
+      "line": 10,
+      "severity": "error",
+      "code": "residue/placeholder",
+      "message": "Placeholder `{{hours}}` left in the note.",
+      "hint": "Replace it with the note's own text."
+    },
+    {
+      "path": "docs/Recipes/Stew.md",
+      "line": 12,
+      "severity": "error",
+      "code": "structure/heading-order",
+      "message": "`## Ingredients` is out of order: the template puts it before `## Steps`.",
+      "hint": "Move the `## Ingredients` section above `## Steps` (line 9)."
+    },
+    {
+      "path": "docs/Recipes/Stew.md",
+      "line": 15,
+      "severity": "error",
+      "code": "structure/repeated-heading",
+      "message": "`## Steps` appears more than once; the template `docs/Templates/Recipe.md` allows it once.",
+      "hint": "Merge the `## Steps` sections into the one at line 9."
+    }
+  ],
+  "summary": {
+    "errors": 5,
+    "warnings": 0,
+    "infos": 0
+  }
+}

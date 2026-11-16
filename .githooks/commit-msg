@@ -1,0 +1,9 @@
+#!/usr/bin/env python3
+import shutil
+import subprocess
+import sys
+
+charter = shutil.which("charter")
+if charter is None:
+    sys.exit("charter was not found on PATH")
+sys.exit(subprocess.call([charter, "validate", "--staged", "--commit-msg", sys.argv[1]]))

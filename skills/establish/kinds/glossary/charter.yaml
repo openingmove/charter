@@ -1,0 +1,23 @@
+# Example kind: glossary, one note per term.
+# Read it to inform a proposal; adapt names, fields and values to the human's domain.
+charter: 1
+root: .
+
+vocabularies:
+  term-area: [manoeuvre, rigging, rules]
+
+paths:
+  "Templates/**": {ignore: true}
+  "glossary/**": {kinds: [term]}
+
+kinds:
+  term:
+    description: "A word the group uses, defined once, with the words it is confused with."
+    path: "glossary/{title}.md"
+    template: Templates/Term.md
+    fields:
+      kind: {type: string, required: true}
+      title: {type: string, required: true, matches_filename: true, description: "The term as the group writes it."}
+      area: {enum: term-area, required: true}
+      aliases: {type: list, of: string, description: "Other words for the same thing."}
+      see_also: {type: list, of: link, to: term}

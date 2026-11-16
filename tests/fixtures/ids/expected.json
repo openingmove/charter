@@ -1,0 +1,59 @@
+{
+  "format": "charter-diagnostics/1",
+  "profile": "ci",
+  "diagnostics": [
+    {
+      "path": "charter.yaml",
+      "line": 16,
+      "severity": "error",
+      "code": "ids/count",
+      "message": "Kind `thing` has 4 notes, but its `collection` declares `count: 6`.",
+      "hint": "Add or remove `thing` notes, or change the `count`."
+    },
+    {
+      "path": "charter.yaml",
+      "line": 16,
+      "severity": "error",
+      "code": "ids/gap",
+      "message": "`thing` notes skip `id` 3\u20135; the collection's `id` values must have no gaps.",
+      "hint": "Add `thing` notes with those values, or renumber so `id` runs without gaps."
+    },
+    {
+      "path": "docs/Things/Harbour.md",
+      "line": 4,
+      "severity": "error",
+      "code": "ids/duplicate",
+      "message": "`title` is `Harbour`, as in `docs/Things/Old Harbour.md`; `title` must be unique across `thing` notes.",
+      "hint": "Give each `thing` note its own `title`."
+    },
+    {
+      "path": "docs/Things/Lighthouse.md",
+      "line": 3,
+      "severity": "error",
+      "code": "ids/duplicate",
+      "message": "`id` is `2`, as in `docs/Things/Tide Pool.md`; `id` must be unique across `thing` notes.",
+      "hint": "Give each `thing` note its own `id`."
+    },
+    {
+      "path": "docs/Things/Old Harbour.md",
+      "line": 4,
+      "severity": "error",
+      "code": "ids/duplicate",
+      "message": "`title` is `Harbour`, as in `docs/Things/Harbour.md`; `title` must be unique across `thing` notes.",
+      "hint": "Give each `thing` note its own `title`."
+    },
+    {
+      "path": "docs/Things/Tide Pool.md",
+      "line": 3,
+      "severity": "error",
+      "code": "ids/duplicate",
+      "message": "`id` is `2`, as in `docs/Things/Lighthouse.md`; `id` must be unique across `thing` notes.",
+      "hint": "Give each `thing` note its own `id`."
+    }
+  ],
+  "summary": {
+    "errors": 6,
+    "warnings": 0,
+    "infos": 0
+  }
+}

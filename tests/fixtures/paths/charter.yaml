@@ -1,0 +1,24 @@
+charter: 1
+root: docs
+
+paths:
+  ".obsidian/**": {ignore: true}
+  "Templates/**": {ignore: true}
+  "**/Drafts/**": {ignore: true}
+  "Research/**": {kinds: [research]}
+  "Research/Archive/**": {ignore: true}
+  "Research/Shared/**": {kinds: [research, book]}
+
+kinds:
+  book:
+    fields:
+      kind: {type: string, required: true}
+      title: {type: string, required: true}
+  author:
+    fields:
+      kind: {type: string, required: true}
+      name: {type: string, required: true}
+  research:
+    fields:
+      kind: {type: string, required: true}
+      topic: {type: string, required: true}

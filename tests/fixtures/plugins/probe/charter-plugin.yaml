@@ -1,0 +1,5 @@
+charter_plugin: 1
+id: probe
+version: 2.0.1
+description: "Records the request it receives in request.json, in its working directory."
+run: ["uv", "run", "--script", "probe.py"]

@@ -1,0 +1,14 @@
+charter: 1
+root: docs
+
+kinds:
+  book:
+    fields:
+      kind: {type: string, required: true}
+      title: {type: string, required: true}
+      pages: {type: int}
+      author: {type: link, required: true}
+  author:
+    fields:
+      kind: {type: string, required: true}
+      name: {type: string, required: true}

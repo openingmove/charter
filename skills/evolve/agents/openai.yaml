@@ -1,0 +1,6 @@
+interface:
+  display_name: "Evolve"
+  short_description: "Change a charter contract and fix the notes it breaks, with your agreement"
+
+policy:
+  allow_implicit_invocation: false

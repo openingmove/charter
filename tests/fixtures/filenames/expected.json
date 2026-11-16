@@ -1,0 +1,67 @@
+{
+  "format": "charter-diagnostics/1",
+  "profile": "ci",
+  "diagnostics": [
+    {
+      "path": "docs/Decisions/3 Close the Pier.md",
+      "line": 2,
+      "severity": "error",
+      "code": "filenames/path",
+      "message": "The path does not match the `decision` path pattern `Decisions/{id} {title}{status|suffix}.md`; expected `docs/Decisions/3 Close the Pier (Dropped).md`.",
+      "hint": "Rename the file to `docs/Decisions/3 Close the Pier (Dropped).md`, or correct the fields the pattern uses (`id`, `title`, `status`)."
+    },
+    {
+      "path": "docs/Decisions/4.md",
+      "line": 1,
+      "severity": "error",
+      "code": "schema/required",
+      "message": "Required field `title` is missing.",
+      "hint": "Set `title` to a string."
+    },
+    {
+      "path": "docs/Logs/Quay/2026-03-02 calm.md",
+      "line": 2,
+      "severity": "error",
+      "code": "filenames/path",
+      "message": "The path does not match the `log` path pattern `Logs/{area|lower}/{day} {title|slug}.md`; expected `docs/Logs/quay/2026-03-02 calm.md`.",
+      "hint": "Rename the file to `docs/Logs/quay/2026-03-02 calm.md`, or correct the fields the pattern uses (`area`, `day`, `title`)."
+    },
+    {
+      "path": "docs/People/Bo.md",
+      "line": 3,
+      "severity": "error",
+      "code": "filenames/matches-filename",
+      "message": "`name` is `Bob`, but the filename has `Bo`.",
+      "hint": "Rename the file to `docs/People/Bob.md`, or set `name` to `Bo`."
+    },
+    {
+      "path": "docs/Things/Misplaced/Compass.md",
+      "line": 2,
+      "severity": "error",
+      "code": "filenames/path",
+      "message": "The path does not match the `thing` path pattern `Things/{title}.md`; expected `docs/Things/Compass.md`.",
+      "hint": "Rename the file to `docs/Things/Compass.md`, or correct the fields the pattern uses (`title`)."
+    },
+    {
+      "path": "docs/Things/Old Rope.md",
+      "line": 3,
+      "severity": "error",
+      "code": "filenames/matches-filename",
+      "message": "`title` is `New Rope`, but the filename has `Old Rope`.",
+      "hint": "Rename the file to `docs/Things/New Rope.md`, or set `title` to `Old Rope`."
+    },
+    {
+      "path": "docs/Things/Question.md",
+      "line": 3,
+      "severity": "error",
+      "code": "filenames/unsafe-value",
+      "message": "`title` is `Why: the Tide?`, which cannot be part of a path on every platform: it contains `:`, which Windows does not allow in file names.",
+      "hint": "Change `title`, or render it through `|slug` in the `thing` path pattern."
+    }
+  ],
+  "summary": {
+    "errors": 7,
+    "warnings": 0,
+    "infos": 0
+  }
+}

@@ -1,0 +1,11 @@
+charter_plugin: 1
+id: misbehave
+version: 0.1.0
+description: "Fails in the way its `behaviour` parameter names."
+run: ["uv", "run", "--script", "misbehave.py"]
+timeout_ms: 4000
+config_schema:
+  type: object
+  properties:
+    behaviour: {enum: [crash, noisy-crash, hang, not-json, wrong-protocol, malformed-diagnostic, foreign-code, escaping-path, backslash-path, drive-path, flood, orphan, leave-child, leave-child-and-hang, leave-child-and-flood, bom]}
+  required: [behaviour]

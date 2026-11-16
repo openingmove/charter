@@ -1,0 +1,51 @@
+{
+  "format": "charter-diagnostics/1",
+  "profile": "ci",
+  "diagnostics": [
+    {
+      "path": "docs/Boats/Gull.md",
+      "line": 4,
+      "severity": "error",
+      "code": "links/wrong-kind",
+      "message": "Field `crew` links to `docs/Harbours/South Harbour.md`, which is kind `harbour`; it must link to a note of kind `sailor`.",
+      "hint": "Link to a note of kind `sailor`, or change `to` for this field in charter.yaml."
+    },
+    {
+      "path": "docs/Boats/Gull.md",
+      "line": 10,
+      "severity": "error",
+      "code": "links/ambiguous",
+      "message": "Link `[[North Harbour]]` is ambiguous: `docs/Archive/North Harbour.md`, `docs/Harbours/North Harbour.md` all match by basename.",
+      "hint": "Link by path to name one note, e.g. `[[Archive/North Harbour]]`."
+    },
+    {
+      "path": "docs/Boats/Gull.md",
+      "line": 10,
+      "severity": "error",
+      "code": "links/unresolved",
+      "message": "Link `[[Gul]]` matches no note by path, basename or alias.",
+      "hint": "Did you mean `Gull`?"
+    },
+    {
+      "path": "docs/Boats/Gull.md",
+      "line": 11,
+      "severity": "error",
+      "code": "links/missing-anchor",
+      "message": "Link `[[South Harbour#Docks]]` points at heading `Docks`, which `docs/Harbours/South Harbour.md` does not have.",
+      "hint": "Headings in `docs/Harbours/South Harbour.md`: `South Harbour`."
+    },
+    {
+      "path": "docs/Inbox/Loose.md",
+      "line": 1,
+      "severity": "error",
+      "code": "links/unresolved",
+      "message": "Link `[new boat](Boats/Heron.md)` does not resolve to a file.",
+      "hint": "Markdown link paths are relative to the linking note's folder; `.md` may be omitted."
+    }
+  ],
+  "summary": {
+    "errors": 5,
+    "warnings": 0,
+    "infos": 0
+  }
+}
