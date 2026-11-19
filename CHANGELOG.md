@@ -4,6 +4,10 @@ Each release of charter has a section here, newest first. The section for a vers
 
 ## Unreleased
 
+### Documentation
+
+- [Plugins](docs/guide/Plugins.md) no longer describes the `needs: [body]` rule for linked notes as new. charter 0.2.0 already applied it.
+
 ## 0.2.1 - 2026-11-19
 
 ### Upgrade notes
