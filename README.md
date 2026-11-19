@@ -32,10 +32,10 @@ The user manual is in [`docs/guide/`](docs/guide/README.md), and the same pages 
 charter needs Python 3.11 or later and installs with [uv](https://docs.astral.sh/uv/). It is not on PyPI yet, so install it from this repository, by git URL or from a local checkout:
 
 ```
-uv tool install git+https://github.com/openingmove/charter
+uv tool install git+https://github.com/openingmove/charter@main
 ```
 
-Check it with `charter --version`. To upgrade, run `uv tool upgrade charter`. Local checkouts and versions: see [Install](docs/guide/Install.md).
+`main` holds the latest release. Check it with `charter --version`. To upgrade to the next release, run `uv tool upgrade charter`. Local checkouts and versions: see [Install](docs/guide/Install.md).
 
 ## Quick start
 

@@ -7,8 +7,10 @@ charter has two parts: the command line tool, and the skills that drive it. They
 charter needs Python 3.11 or later and installs with [uv](https://docs.astral.sh/uv/). It is not on PyPI yet, so install it from this repository, by git URL or from a local checkout:
 
 ```
-uv tool install git+https://github.com/openingmove/charter
+uv tool install git+https://github.com/openingmove/charter@main
 ```
+
+`main` holds the latest release, and uv remembers the branch, so an upgrade moves to the next release. To pin one release, name its tag instead, such as `@v0.2.1` (the tags are on the Releases page).
 
 For a local checkout, give its path instead: `uv tool install /path/to/charter`, or `uv tool install C:\src\charter` on Windows.
 
