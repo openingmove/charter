@@ -66,8 +66,6 @@ The plugin reads one JSON request on stdin and writes one JSON response on stdou
 
 `targets` are the notes this run selected. `today` is the day the run judges as of, `YYYY-MM-DD`: the local date, or `CHARTER_TODAY` when set. Use it rather than the plugin's own clock, so the plugin agrees with charter. A `vault`-scoped plugin's `index` holds every note; a `file`-scoped plugin's holds the targets and the notes they link to, except on a whole run, which gives it every note too. `mode` says which it got: `file` or `vault`. A note's `body`, the text after its frontmatter, is there only when the manifest `needs: [body]`. `needs: [body]` also fills in the `links`, `headings` and `tags` of the notes a `file`-scoped plugin gets only because a target links to them. Without it those keys are there but empty, so charter does not have to read those notes' bodies. The targets, and every note of a `vault` run or a whole run, carry their `links`, `headings` and `tags` whatever the `needs`.
 
-This is a change from earlier versions of charter, which filled in a linked note's `links`, `headings` and `tags` for every `file`-scoped plugin. A plugin that reads them must now declare `needs: [body]`; without it, it gets empty lists and no error.
-
 With `needs: [before]` the request also holds what the run's change did, as edit policies judge it (`--staged`: the staged change; otherwise the working copy since `HEAD`, for `--file` only the named files):
 
 ```json
