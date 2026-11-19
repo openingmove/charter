@@ -1,3 +1,4 @@
+import pytest
 from conftest import commit_files, run_git, validate_commit_msg, write_files
 
 CONTRACT = """\
@@ -255,6 +256,47 @@ def test_a_gitignored_file_is_not_seen_as_added_unless_it_is_force_added(charter
     assert _codes(plain) == [("notes/Archive/seen.md", "error", "paths/read-only")]
 
     run_git(kb, "add", "-f", "notes/Archive/scratch.tmp")
+    forced = _validate(charter, kb)
     staged = validate_commit_msg(charter, kb, "Add\n")
 
+    assert ("notes/Archive/scratch.tmp", "error", "paths/read-only") in _codes(forced)
     assert ("notes/Archive/scratch.tmp", "error", "paths/read-only") in _codes(staged)
+
+    base = run_git(kb, "rev-parse", "HEAD")
+    run_git(kb, "commit", "-q", "-m", "Add")
+    ranged = _validate(charter, kb, "--range", f"{base}..HEAD")
+
+    assert ("notes/Archive/scratch.tmp", "error", "paths/read-only") in _codes(ranged)
+    added = next(d for d in ranged.json()["diagnostics"] if d["path"] == "notes/Archive/scratch.tmp")
+    assert "added" in added["message"]
+
+
+@pytest.mark.parametrize("source", ["info/exclude", "core.excludesFile"])
+def test_a_file_git_ignores_through_exclude_files_is_not_seen_as_added(charter, make_kb, source):
+    kb = _committed(make_kb)
+    if source == "info/exclude":
+        write_files(kb, {".git/info/exclude": "*.tmp\n"})
+    else:
+        write_files(kb, {".git/global-excludes": "*.tmp\n"})
+        run_git(kb, "config", "core.excludesFile", str(kb / ".git" / "global-excludes"))
+    write_files(kb, {"notes/Archive/seen.md": NOTE, "notes/Archive/scratch.tmp": "x"})
+
+    result = _validate(charter, kb)
+
+    assert _codes(result) == [("notes/Archive/seen.md", "error", "paths/read-only")]
+
+
+def test_a_tracked_file_that_git_later_ignores_is_reported_as_changed(charter, make_kb):
+    kb = _committed(make_kb, {**FILES, "notes/Archive/kept.tmp": "x"})
+    write_files(kb, {".git/info/exclude": "*.tmp\n", "notes/Archive/kept.tmp": "y"})
+
+    plain = _validate(charter, kb)
+    _stage(kb)
+    staged = validate_commit_msg(charter, kb, "Change\n")
+    base = run_git(kb, "rev-parse", "HEAD")
+    run_git(kb, "commit", "-q", "-m", "Change")
+    ranged = _validate(charter, kb, "--range", f"{base}..HEAD")
+
+    for result in (plain, staged, ranged):
+        assert _codes(result) == [("notes/Archive/kept.tmp", "error", "paths/read-only")]
+        assert "changed" in result.json()["diagnostics"][0]["message"]

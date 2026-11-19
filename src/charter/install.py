@@ -27,8 +27,8 @@ from charter.lock import (
     Locked,
     content_hash,
     is_vendored,
-    symlink_reason,
     lock_bytes,
+    symlink_reason,
     symlinks_in,
     vendored_directory,
     write_lock,
@@ -296,7 +296,7 @@ def _commit(
     lock_before = lock_file.read_bytes() if lock_file.is_file() else None
     contract_file = settings.base_dir / settings.file
     contract_before = contract_file.read_bytes() if contract is not None and contract_file.is_file() else None
-    written_lock: list[bytes | None] = [None]
+    written_lock: bytes | None = None
 
     # The undo reads what is on disk instead of what was recorded, so an interrupt between a step and any
     # bookkeeping still rolls back exactly what happened, and a step that never ran is left alone.
@@ -315,7 +315,7 @@ def _commit(
         current = lock_file.read_bytes() if lock_file.is_file() else None
         if current == lock_before:
             return
-        if written_lock[0] is None or current != written_lock[0]:
+        if written_lock is None or current != written_lock:
             raise _EditedMeanwhile
         if lock_before is None:
             lock_file.unlink()
@@ -352,7 +352,7 @@ def _commit(
             if copy is not None:
                 new.rename(target)
         with writing(LOCK_FILENAME, WRITE_FAILED):
-            written_lock[0] = lock_bytes(locked)
+            written_lock = lock_bytes(locked)
             write_lock(settings.base_dir, locked)
         if contract is not None:
             with writing(settings.file, WRITE_FAILED):
@@ -417,7 +417,11 @@ def _undoing(shown: str, action: Callable[[], object], kept: str | None = None) 
                 WRITE_FAILED,
                 f"`{shown}` could not be put back as it was after the failure: it was changed by something else "
                 "while this command ran.",
-                "It was left as it is now; check that it says what you want.",
+                f"It was left as it is now; check `{LOCK_FILENAME}` by hand or restore it from version control. "
+                "For a plugin installed with `--from` that the lock still lists, `charter plugin update <id>` "
+                "writes its entry again; it fetches the plugin again, so a branch ref can bring in new commits."
+                if shown == LOCK_FILENAME
+                else "It was left as it is now; check that it says what you want.",
             )
         except BaseException as error:  # an interrupt during the undo must not skip the other steps
             reason = getattr(error, "strerror", None) or str(error) or type(error).__name__

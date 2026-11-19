@@ -126,6 +126,34 @@ def test_the_commit_route_is_the_two_commit_order_or_a_trailer_for_an_adopted_pl
     assert "only route is a `Charter-Allow` trailer" in _text(ESTABLISH / "adopt.md")
 
 
+def test_every_trailer_mention_says_the_reason_is_required():
+    reason = "without the `— <reason>` part charter reports `override/invalid`"
+
+    assert reason in _step(MIGRATE / "SKILL.md", 6)
+    assert reason in _step(MIGRATE / "SKILL.md", 8)
+    assert reason in _text(ESTABLISH / "adopt.md")
+
+
+def test_the_hook_sentence_comes_before_the_adopted_plan_route():
+    step = _step(MIGRATE / "SKILL.md", 6)
+
+    assert step.index("`usage/contract-not-staged`") < step.index("that hook code does not fire")
+
+
+def test_an_adopted_plan_gets_no_new_path_policy_from_migrate():
+    assert "For a plan with `- Contract: adopted`, add no rule" in _step(MIGRATE / "SKILL.md", 6)
+    assert "Migrate adds no path policy to the draft" in _text(ESTABLISH / "adopt.md")
+
+
+def test_a_contract_that_does_not_load_is_shown_to_the_human():
+    assert "show the human the load error and stop" in _step(ESTABLISH / "SKILL.md", 2)
+
+
+def test_a_ticked_line_whose_work_is_missing_points_at_resuming_after_an_undo():
+    assert 'follow "Resuming after an undo" in [way-back.md](way-back.md)' in _step(MIGRATE / "SKILL.md", 2)
+    assert re.search(r"^## Resuming after an undo$", (MIGRATE / "way-back.md").read_text("utf-8"), re.M)
+
+
 # --- the minimum charter version is tied to the package ---
 
 

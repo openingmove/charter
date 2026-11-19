@@ -13,6 +13,7 @@ dependencies = [
 
 [project.scripts]
 charter = "charter.cli:run"
+charter-hook = "charter.guard:main"
 
 [dependency-groups]
 dev = [

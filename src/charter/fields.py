@@ -36,6 +36,8 @@ FIELD_SCHEMA = {
         },
         "matches_filename": {"type": "boolean"},
         "unique": {"type": "boolean"},
+        # Checked in `spec_problems`, so a wrong value gets a hint.
+        "width": {},
         # Checked against the field's type in `spec_problems`, like condition values.
         "default": {},
         "auto": {"enum": [TODAY, NEXT]},
@@ -83,6 +85,11 @@ def same_value(actual: Any, expected: Any) -> bool:
     return isinstance(actual, bool) == isinstance(expected, bool) and actual == expected
 
 
+def zero_padded(number: int, width: int) -> str:
+    """`number` with its digits zero padded to at least `width`; a minus sign comes before them."""
+    return ("-" if number < 0 else "") + str(abs(number)).zfill(width)
+
+
 @dataclass(frozen=True)
 class Field:
     name: str
@@ -103,6 +110,8 @@ class Field:
     matches_filename: bool = False
     # No other note of the kind may hold the same value.
     unique: bool = False
+    # An `int` field's text is its value zero padded to at least this many digits; None for plain decimal.
+    width: int | None = None
     # What `charter new` writes when no value is given; None for neither.
     default: Any = None
     auto: str | None = None
@@ -114,6 +123,12 @@ class Field:
     @property
     def holds_links(self) -> bool:
         return self.type == "link" or (self.type == "list" and self.of == "link")
+
+    def text(self, value: Any) -> str:
+        """`value` as it becomes text in a path, a template or prose: zero padded to `width`, else as YAML writes it."""
+        if self.width is not None and isinstance(value, int) and not isinstance(value, bool):
+            return zero_padded(value, self.width)
+        return yaml_text(value)
 
     def describe(self, choices: Sequence[Any] | None) -> str:
         """What a value must be, for someone about to give one: `an integer, from 1 to 100`.
@@ -293,6 +308,9 @@ def spec_problems(
     if spec.get("unique") is True and field_type == "list":
         yield invalid([*location, "unique"], "`unique` applies to single values, not lists.", None)
 
+    if "width" in spec:
+        yield from _width_problems(location, spec["width"], field_type, invalid)
+
     yield from _filling_problems(location, spec, field_type, of, vocabularies, invalid)
 
     if spec.get("required") is True:
@@ -328,6 +346,23 @@ def spec_problems(
                 yield from _condition_value_problems(
                     [*location, key, other], siblings[other], values, vocabularies, invalid
                 )
+
+
+def _width_problems(
+    location: Sequence[str], width: Any, field_type: str, invalid: Invalid
+) -> Iterator[Diagnostic]:
+    if field_type != "int":
+        yield invalid(
+            [*location, "width"],
+            f"`width` pads `int` values, not `{field_type}`.",
+            "Declare the field with `type: int`, or remove `width`.",
+        )
+    elif isinstance(width, bool) or not isinstance(width, int) or width < 1:
+        yield invalid(
+            [*location, "width"],
+            f"`width` is `{yaml_text(width)}`, but it must be a positive whole number.",
+            "Give the number of digits the value is padded to, such as `width: 4`.",
+        )
 
 
 def _filling_problems(
@@ -417,6 +452,7 @@ def parse_field(
         to=link_targets(spec),
         matches_filename=spec.get("matches_filename", False),
         unique=spec.get("unique", False),
+        width=spec.get("width"),
         default=spec.get("default"),
         auto=spec.get("auto"),
         line=line,

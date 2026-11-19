@@ -12,11 +12,12 @@ from typing import Any
 
 from charter import __version__
 from charter.checks import CheckRequest
-from charter.diagnostics import PLUGIN_FAILED, PLUGIN_MODIFIED, Diagnostic, Severity
+from charter.diagnostics import PLUGIN_FAILED, PLUGIN_MODIFIED, PLUGIN_SKIPPED_PATH, Diagnostic, Severity
 from charter.files import contract_relative
 from charter.history import EditDelta
 from charter.index import Note
 from charter.lock import LOCK_FILENAME, symlink_reason
+from charter.output import printable
 from charter.plugin import Plugin
 from charter.process import run_bounded
 from charter.schemacheck import errors as schema_errors
@@ -74,8 +75,17 @@ class PluginCheck:
         plugin = self.plugin
         if request.per_edit and not plugin.hook:
             return []
-        if plugin.triggers is not None and not plugin.triggers.fire(request.kinds, _target_paths(request)):
-            return []
+        if plugin.triggers is not None:
+            # A trigger sees only the targets the plugin would be sent, so a glob that matches nothing but paths that
+            # are not valid UTF-8 does not start the plugin with no targets. The user still learns those paths were
+            # not checked: each one the glob matches is reported as `plugin/skipped-path`.
+            targets, skipped = _split_utf8([note.path for note in request.target_notes()])
+            if not plugin.triggers.fire(request.kinds, [_local(request, path) for path in targets]):
+                return [
+                    self._skipped(path)
+                    for path in sorted(skipped)
+                    if plugin.triggers.fire(frozenset(), [_local(request, path)])
+                ]
         return self.invoke(request)
 
     def invoke(self, request: CheckRequest) -> list[Diagnostic]:
@@ -108,18 +118,36 @@ class PluginCheck:
                 )
                 for reason in reasons
             ]
+        payload, skipped = self._payload(request)
+        warnings = [self._skipped(path) for path in sorted(skipped)]
         try:
-            return self._diagnostics(request)
+            return warnings + self._diagnostics(request, payload)
         except _Failed as failure:
-            return [self._failure(request, failure)]
+            return [*warnings, self._failure(request, failure)]
 
     def payload(self, request: CheckRequest) -> str:
         """The `charter-plugin/1` request, as the JSON text the plugin reads on stdin."""
-        return json.dumps(self._request(request), ensure_ascii=False, default=_json_value)
+        return self._payload(request)[0]
 
-    def _diagnostics(self, request: CheckRequest) -> list[Diagnostic]:
+    def _payload(self, request: CheckRequest) -> tuple[str, set[str]]:
+        """The request as JSON text, and the paths left out of it because they are not valid UTF-8."""
+        body, skipped = self._request(request)
+        return json.dumps(body, ensure_ascii=False, default=_json_value), skipped
+
+    def _skipped(self, path: str) -> Diagnostic:
+        return Diagnostic(
+            path,
+            None,
+            Severity.WARNING,
+            PLUGIN_SKIPPED_PATH,
+            f"Plugin `{self.id}` was not sent `{printable(path)}`: its name is not valid UTF-8, and `{PROTOCOL}` "
+            "carries only UTF-8 paths.",
+            "Rename the file to a valid UTF-8 name, so the plugin can check it.",
+        )
+
+    def _diagnostics(self, request: CheckRequest, payload: str) -> list[Diagnostic]:
         root = request.contract.root_path
-        stdout, stderr = self._spawn(self.payload(request).encode("utf-8"))
+        stdout, stderr = self._spawn(payload.encode("utf-8"))
         try:
             response = json.loads(stdout.decode("utf-8-sig"))
         except (UnicodeDecodeError, json.JSONDecodeError) as error:
@@ -151,7 +179,8 @@ class PluginCheck:
             )
         return diagnostics
 
-    def _request(self, request: CheckRequest) -> dict[str, Any]:
+    def _request(self, request: CheckRequest) -> tuple[dict[str, Any], set[str]]:
+        """The request as a value, and the paths left out of it because they are not valid UTF-8."""
         root = request.contract.root_path
         plugin = self.plugin
 
@@ -183,7 +212,8 @@ class PluginCheck:
             }
 
         whole = plugin.scope == "vault" or request.whole
-        targets = list(request.target_notes())
+        targets = [target for target in request.target_notes() if _is_utf8(target.path)]
+        skipped = {target.path for target in request.target_notes() if not _is_utf8(target.path)}
         if whole:
             notes = request.notes
         else:
@@ -191,21 +221,26 @@ class PluginCheck:
             wanted = {*(target.path for target in targets), *linked}
             # A link may resolve to a file that is not a note (an image, the rulebook); only notes are indexed.
             notes = tuple(n for n in request.notes if n.path in wanted)
+        skipped |= {n.path for n in notes if not _is_utf8(n.path)}
+        notes = tuple(n for n in notes if _is_utf8(n.path))
         # The targets are parsed for the run anyway, and so is every note of a whole run; only the notes a file-scope
         # plugin is sent for being linked to wait for it to declare that it reads bodies.
         parsed = {n.path for n in notes} if whole or "body" in plugin.needs else {t.path for t in targets}
-        return {
+        body = {
             "protocol": PROTOCOL,
             "charter_version": __version__,
             "plugin": {"id": plugin.id, "version": plugin.version},
             "params": plugin.params,
             "mode": "vault" if whole else "file",
             "root": root,
-            "targets": _target_paths(request),
+            "targets": [_local(request, target.path) for target in targets],
             "today": request.today.isoformat(),
             "index": {"notes": [note(n, n.path in parsed) for n in notes]},
-            **({"before": _before(request)} if "before" in plugin.needs else {}),
         }
+        if "before" in plugin.needs:
+            body["before"], left_out = _before(request)
+            skipped |= left_out
+        return body, skipped
 
     def _spawn(self, payload: bytes) -> tuple[bytes, bytes]:
         plugin = self.plugin
@@ -242,13 +277,14 @@ def _local(request: CheckRequest, path: str) -> str:
     return posixpath.relpath(path, request.contract.root_path)
 
 
-def _before(request: CheckRequest) -> dict[str, Any]:
-    """The files the run's change touched in the knowledge base, each with its content before the change."""
+def _before(request: CheckRequest) -> tuple[dict[str, Any], set[str]]:
+    """The files the run's change touched in the knowledge base, each with its content before the change, and the
+    touched paths left out because they are not valid UTF-8."""
     history = request.history
     if not isinstance(history, EditDelta):
         reason = history.reason if history is not None else "this run compares nothing with an earlier version"
-        return {"available": False, "reason": reason, "files": []}
-    touched = [path for path in history.touched() if request.contract.holds(path)]
+        return {"available": False, "reason": reason, "files": []}, set()
+    touched, skipped = _split_utf8([path for path in history.touched() if request.contract.holds(path)])
     contents = history.before.read(touched)
     return {
         "available": True,
@@ -257,7 +293,7 @@ def _before(request: CheckRequest) -> dict[str, Any]:
             {"path": _local(request, path), "status": history.status(path), "content": _text(contents.get(path))}
             for path in touched
         ],
-    }
+    }, set(skipped)
 
 
 def _text(content: bytes | None) -> str | None:
@@ -269,8 +305,19 @@ def _text(content: bytes | None) -> str | None:
         return None
 
 
-def _target_paths(request: CheckRequest) -> list[str]:
-    return [_local(request, note.path) for note in request.target_notes()]
+def _is_utf8(path: str) -> bool:
+    """Whether `path` encodes as UTF-8: a name that was not valid UTF-8 holds the lone surrogates `surrogateescape`
+    decodes its bytes to."""
+    try:
+        path.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
+def _split_utf8(paths: list[str]) -> tuple[list[str], list[str]]:
+    """`paths` split into those a request can carry and those left out because they are not valid UTF-8."""
+    return [path for path in paths if _is_utf8(path)], [path for path in paths if not _is_utf8(path)]
 
 
 def _json_value(value: Any) -> str:

@@ -44,6 +44,14 @@ _Avoid_: agent guide, memory file
 **Backstop**:
 A check that runs whatever any agent or person did, such as CI on a pull request; it catches what guidance missed.
 
+**Contract guard**:
+The opt-in part of the agent layer (`guard: true` under `agents:`) that, in Claude Code, refuses a write to the contract in a session without a marker.
+_Avoid_: contract lock, write protection (protection is a path policy on notes)
+
+**Marker**:
+A per-user record, kept outside the repository, that the human typed `/charter:establish`, `/charter:evolve` or `/charter:migrate` in a session. It lets that session write a guarded contract.
+_Avoid_: token, permission
+
 ### How charter is used
 
 **Core**:
@@ -102,6 +110,7 @@ Editing notes under a contract without changing it.
 - **Working within** needs no skill: the **rulebook**, loaded through the **agent file** when an edit touches the **knowledge base**, governs every edit, including edits another skill makes. Where a skill's own opinion about a document conflicts with the **contract**, the **contract** wins.
 - Adoption is deliberate: once charter and its skills are installed, the human runs **Establish**, then **Migrate** if files must change. Nothing starts them on its own.
 - **Evolve** is always a human decision. An agent working within a knowledge base never changes the **contract** to make a note pass; it stops and tells the human, who may choose to **evolve** it.
+- The **contract guard** enforces that rule in Claude Code: only a command the human typed leaves a **marker**, and an agent cannot start **Establish**, **Evolve** or **Migrate** itself.
 
 ## Example dialogue
 

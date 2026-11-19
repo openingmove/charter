@@ -25,8 +25,8 @@ class PathsCheck:
     def judges_edits(self, contract: Contract, targets: frozenset[str] | None = None) -> bool:
         if targets is None:
             return contract.paths.declares("edit")
-        # The same test `edit_violations` makes for each touched file, so git is not asked about files it skips.
-        return any(contract.holds(path) and "edit" in contract.path_policy(path) for path in targets)
+        # The same lookup `edit_violations` makes for each touched file, so git is not asked about files it skips.
+        return any(_edit_policy(contract, path) is not None for path in targets)
 
     def edit_diagnostics(self, request: CheckRequest) -> Iterator[Diagnostic]:
         contract, history = request.contract, request.history
@@ -41,21 +41,28 @@ class PathsCheck:
 
 
 def edit_violations(contract: Contract, edits: EditDelta, commit: str | None = None) -> Iterator[Diagnostic]:
-    """How a change breaks the edit policies: adding, changing or deleting a file under `read-only`, or changing
-    or deleting one under `create-only`. `commit` names the commit that made the change, if any."""
+    """How a change breaks the edit policies. `commit` names the commit that made the change, if any."""
     for path in edits.touched():
-        if not contract.holds(path):
-            continue
-        policy = contract.path_policy(path).get("edit")
-        status = edits.status(path)
-        if policy is None or (policy.value == CREATE_ONLY and status == ADDED):
-            continue
-        yield edit_violation(path, policy, status, commit)
+        if (violation := edit_violation_for(contract, path, edits.status(path), commit)) is not None:
+            yield violation
 
 
-def edit_violation(path: str, policy: Setting, status: str, commit: str | None = None) -> Diagnostic:
-    """The diagnostic for a file `status` (added, modified or deleted) against the edit policy `policy` that
-    covers it; `charter new` reuses it for a note it would add."""
+def edit_violation_for(contract: Contract, path: str, status: str, commit: str | None = None) -> Diagnostic | None:
+    """How a file `status` (added, modified or deleted) at `path` breaks the edit policy that covers it, if it
+    does: adding, changing or deleting a file under `read-only`, or changing or deleting one under `create-only`.
+    `charter new` asks it about a note it would add."""
+    policy = _edit_policy(contract, path)
+    if policy is None or (policy.value == CREATE_ONLY and status == ADDED):
+        return None
+    return _edit_diagnostic(path, policy, status, commit)
+
+
+def _edit_policy(contract: Contract, path: str) -> Setting | None:
+    """The edit policy that covers `path`, if the contract holds the path and a policy sets `edit` there."""
+    return contract.path_policy(path).get("edit") if contract.holds(path) else None
+
+
+def _edit_diagnostic(path: str, policy: Setting, status: str, commit: str | None) -> Diagnostic:
     code = f"paths/{policy.value}"
     trailer = f"`Charter-Allow: {code} {path} — <reason>`"
     verb = "changed" if status == MODIFIED else status

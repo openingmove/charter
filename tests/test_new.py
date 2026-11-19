@@ -483,7 +483,6 @@ def _failing(monkeypatch, method, error):
 
 
 def test_a_name_too_long_raised_by_the_existence_probe_is_a_refusal(charter, kb, monkeypatch):
-
     kb = kb()
     _failing(monkeypatch, "stat", OSError(errno.ENAMETOOLONG, os.strerror(errno.ENAMETOOLONG)))
 
@@ -495,7 +494,6 @@ def test_a_name_too_long_raised_by_the_existence_probe_is_a_refusal(charter, kb,
 
 
 def test_a_name_too_long_raised_on_write_is_a_refusal_that_leaves_nothing(charter, kb, monkeypatch):
-
     kb = kb()
     _failing(monkeypatch, "open", OSError(errno.ENAMETOOLONG, os.strerror(errno.ENAMETOOLONG)))
 
@@ -507,7 +505,6 @@ def test_a_name_too_long_raised_on_write_is_a_refusal_that_leaves_nothing(charte
 
 
 def test_a_name_too_long_raised_when_the_folder_is_made_is_a_refusal(charter, kb, monkeypatch):
-
     kb = kb()
     real = pathlib.Path.mkdir
 
@@ -525,7 +522,6 @@ def test_a_name_too_long_raised_when_the_folder_is_made_is_a_refusal(charter, kb
 
 
 def test_a_permission_error_is_not_called_a_long_name(charter, kb, monkeypatch):
-
     kb = kb()
     _failing(monkeypatch, "open", PermissionError(errno.EACCES, os.strerror(errno.EACCES)))
 

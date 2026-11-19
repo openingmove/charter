@@ -56,6 +56,13 @@ def test_a_skill_is_user_invoked_for_codex(folder):
     assert meta["interface"]["short_description"]
 
 
+def test_the_skills_never_call_the_knowledge_base_a_vault():
+    files = [p for p in SKILLS.rglob("*") if p.is_file()]
+
+    assert files
+    assert [p for p in files if re.search(r"\bvaults?\b", p.read_text("utf-8"), re.I)] == []
+
+
 def test_the_plugin_is_named_charter_and_lists_exactly_the_skill_folders():
     assert PLUGIN["name"] == "charter"
     assert sorted(PLUGIN["skills"]) == [f"./skills/{p.name}" for p in SKILL_FOLDERS]

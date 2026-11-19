@@ -6,7 +6,7 @@ If `AGENTS.private.md` exists in this repository, read it before making changes 
 
 ## What charter is
 
-A Python CLI that validates, scaffolds and documents Markdown knowledge bases against a declared contract (`charter.yaml`). See `README.md`.
+A Python CLI that validates, scaffolds and documents Markdown knowledge bases against a declared contract (`charter.yaml`). See `README.md`, and the user manual in `docs/guide/`, where reference documentation for a new feature goes.
 
 ## Ground rules
 

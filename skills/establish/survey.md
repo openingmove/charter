@@ -1,6 +1,6 @@
 # Reading the survey
 
-`charter survey <folder> --format json` prints `charter-survey/1`. The README's "Surveying a folder" section describes every key.
+`charter survey <folder> --format json` prints `charter-survey/1`. The "Surveying a folder" section of the charter manual's "Commands" page (`docs/guide/Commands.md`) describes every key.
 
 ## Starting point
 

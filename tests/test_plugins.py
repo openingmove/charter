@@ -5,28 +5,23 @@ import time
 
 import pytest
 from conftest import FIXTURES, commit_files, run_git, write_files
+from plugin_support import (
+    KINDS_TWO,
+    LINKED,
+    NOTE,
+    OTHER,
+    PROBE,
+    plugin_kb,
+    probe,
+    rewrite_manifest,
+)
 from process_support import end, gone_within, windows_only
-
-KINDS = "kinds:\n  entry: {}\n"
-NOTE = "---\nkind: entry\n---\n# Plans\n\n## A secret step\n\nSee [[b]].\n"
-OTHER = "---\nkind: entry\n---\n# Secret notes\n"
 
 
 @pytest.fixture
 def kb(make_kb):
     """A knowledge base under `notes/` whose contract ends with `checks`, and the named sample plugins in `tools/`."""
-
-    def make(checks, plugins=(), notes=None, top="", kinds=KINDS):
-        notes = notes if notes is not None else {"a.md": NOTE, "b.md": OTHER}
-        base = make_kb({
-            "charter.yaml": f"charter: 1\nroot: notes\n{top}{kinds}checks:\n  agents-include: {{enabled: false}}\n{checks}",
-            **{f"notes/{path}": text for path, text in notes.items()},
-        })
-        for name in plugins:
-            shutil.copytree(FIXTURES / "plugins" / name, base / "tools" / name)
-        return base
-
-    return make
+    return plugin_kb(make_kb)
 
 
 def _diagnostics(result):
@@ -213,7 +208,7 @@ def test_plugin_that_outlives_its_timeout_fails(charter, kb):
 
 def test_plugin_whose_command_cannot_start_fails(charter, kb):
     base = kb("  probe:\n    source: tools/probe\n", ["probe"])
-    _rewrite_manifest(base / "tools" / "probe", run='["charter-test-no-such-program", "x"]')
+    rewrite_manifest(base / "tools" / "probe", run='["charter-test-no-such-program", "x"]')
 
     result = charter("validate", "--format", "json", cwd=base)
 
@@ -270,7 +265,6 @@ def _left_child(base):
     ("behaviour", "exit_code"), [("leave-child", 0), ("leave-child-and-hang", 3), ("leave-child-and-flood", 3)]
 )
 def test_a_process_the_plugin_left_running_ends_with_the_run(charter, kb, behaviour, exit_code):
-    windows_only()
     base = kb(MISBEHAVE.format(behaviour=behaviour), ["misbehave"])
     pid = None
     try:
@@ -364,14 +358,6 @@ def test_new_reports_plugin_diagnostics_on_the_new_note(charter, kb):
 # --- loading: contract errors, exit 2 ---
 
 
-def _rewrite_manifest(directory, **changes):
-    manifest = directory / "charter-plugin.yaml"
-    lines = manifest.read_text(encoding="utf-8").splitlines()
-    for key, value in changes.items():
-        lines = [line for line in lines if not line.startswith(f"{key}:")] + ([f"{key}: {value}"] if value else [])
-    manifest.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-
 def _contract_error(charter, base):
     result = charter("validate", "--format", "json", cwd=base)
     assert result.exit_code == 2
@@ -394,7 +380,7 @@ def _contract_error(charter, base):
 )
 def test_shell_entry_points_are_rejected(charter, kb, run):
     base = kb("  probe:\n    source: tools/probe\n", ["probe"])
-    _rewrite_manifest(base / "tools" / "probe", run=run)
+    rewrite_manifest(base / "tools" / "probe", run=run)
 
     diagnostics = _contract_error(charter, base)
 
@@ -422,7 +408,7 @@ def test_shell_entry_points_are_rejected(charter, kb, run):
 )
 def test_invalid_manifest_is_a_contract_error(charter, kb, changes, fragment):
     base = kb("  probe:\n    source: tools/probe\n", ["probe"])
-    _rewrite_manifest(base / "tools" / "probe", **changes)
+    rewrite_manifest(base / "tools" / "probe", **changes)
 
     diagnostics = _contract_error(charter, base)
 
@@ -509,7 +495,7 @@ def test_disabled_plugin_is_not_read(charter, kb):
 @pytest.mark.parametrize("requirement", [">=0.0.1", ">0.0.1,<9999", "!=0.0.0, >= 0.1", "<9999.0.0"])
 def test_met_charter_requirement_loads(charter, kb, requirement):
     base = kb("  probe:\n    source: tools/probe\n", ["probe"])
-    _rewrite_manifest(base / "tools" / "probe", requires=f"{{charter: '{requirement}'}}")
+    rewrite_manifest(base / "tools" / "probe", requires=f"{{charter: '{requirement}'}}")
 
     result = charter("validate", "--format", "json", cwd=base)
 
@@ -527,7 +513,7 @@ def test_met_charter_requirement_loads(charter, kb, requirement):
 )
 def test_unmet_or_malformed_charter_requirement_is_a_contract_error(charter, kb, requirement, fragment):
     base = kb("  probe:\n    source: tools/probe\n", ["probe"])
-    _rewrite_manifest(base / "tools" / "probe", requires=f"{{charter: '{requirement}'}}")
+    rewrite_manifest(base / "tools" / "probe", requires=f"{{charter: '{requirement}'}}")
 
     diagnostics = _contract_error(charter, base)
 
@@ -538,22 +524,7 @@ def test_unmet_or_malformed_charter_requirement_is_a_contract_error(charter, kb,
 # --- scope, needs, triggers and hook ---
 
 
-PROBE = "  probe:\n    source: tools/probe\n"
-KINDS_TWO = "kinds:\n  entry: {}\n  place: {}\n"
-LINKED = {
-    "a.md": NOTE,
-    "b.md": OTHER,
-    "c.md": "---\nkind: entry\n---\n# Unrelated\n",
-    "d.md": "---\nkind: entry\n---\nBack to [[a]].\n",
-    "Places/Town.md": "---\nkind: place\n---\n# Town\n",
-}
 EVERY_NOTE = ["Places/Town.md", "a.md", "b.md", "c.md", "d.md"]
-
-
-def _probe(kb, notes=None, **manifest):
-    base = kb(PROBE, ["probe"], notes=notes if notes is not None else LINKED, kinds=KINDS_TWO)
-    _rewrite_manifest(base / "tools" / "probe", **manifest)
-    return base
 
 
 def _received(base):
@@ -566,7 +537,7 @@ def _indexed(request):
 
 
 def test_file_scope_plugin_receives_the_targets_and_the_notes_they_link_to(charter, kb):
-    base = _probe(kb, scope="file")
+    base = probe(kb, scope="file")
 
     result = charter("validate", "--file", "notes/a.md", "--format", "json", cwd=base)
 
@@ -576,7 +547,7 @@ def test_file_scope_plugin_receives_the_targets_and_the_notes_they_link_to(chart
 
 
 def test_file_scope_plugin_receives_the_whole_index_on_a_whole_run(charter, kb):
-    base = _probe(kb, scope="file")
+    base = probe(kb, scope="file")
 
     charter("validate", "--format", "json", cwd=base)
 
@@ -586,7 +557,7 @@ def test_file_scope_plugin_receives_the_whole_index_on_a_whole_run(charter, kb):
 
 @pytest.mark.parametrize("scope", ["vault", None])
 def test_vault_scope_plugin_receives_the_whole_index_for_a_single_file(charter, kb, scope):
-    base = _probe(kb, scope=scope)
+    base = probe(kb, scope=scope)
 
     charter("validate", "--file", "notes/a.md", "--format", "json", cwd=base)
 
@@ -595,7 +566,7 @@ def test_vault_scope_plugin_receives_the_whole_index_for_a_single_file(charter, 
 
 
 def test_body_is_sent_only_when_the_plugin_needs_it(charter, kb):
-    base = _probe(kb, needs="[body]")
+    base = probe(kb, needs="[body]")
 
     charter("validate", "--file", "notes/a.md", "--format", "json", cwd=base)
 
@@ -605,7 +576,7 @@ def test_body_is_sent_only_when_the_plugin_needs_it(charter, kb):
 
 
 def test_body_of_a_note_without_frontmatter_is_its_whole_text(charter, kb):
-    base = _probe(kb, notes={"a.md": "Just text.\r\nMore.\r\n"}, needs="[body]")
+    base = probe(kb, notes={"a.md": "Just text.\r\nMore.\r\n"}, needs="[body]")
 
     charter("validate", "--format", "json", cwd=base)
 
@@ -625,7 +596,7 @@ def test_body_of_a_note_without_frontmatter_is_its_whole_text(charter, kb):
     ],
 )
 def test_triggers_limit_when_a_plugin_runs(charter, kb, triggers, target, runs):
-    base = _probe(kb, triggers=triggers)
+    base = probe(kb, triggers=triggers)
 
     result = charter("validate", "--file", target, "--format", "json", cwd=base)
 
@@ -634,7 +605,7 @@ def test_triggers_limit_when_a_plugin_runs(charter, kb, triggers, target, runs):
 
 
 def test_kind_triggers_fire_on_a_whole_run(charter, kb):
-    base = _probe(kb, triggers="{kinds: [place]}")
+    base = probe(kb, triggers="{kinds: [place]}")
 
     charter("validate", "--format", "json", cwd=base)
 
@@ -642,7 +613,7 @@ def test_kind_triggers_fire_on_a_whole_run(charter, kb):
 
 
 def test_glob_triggers_need_a_matching_note_even_on_a_whole_run(charter, kb):
-    base = _probe(kb, triggers="{globs: ['Meta/Traversal.md']}")
+    base = probe(kb, triggers="{globs: ['Meta/Traversal.md']}")
 
     charter("validate", "--format", "json", cwd=base)
 
@@ -659,7 +630,7 @@ def test_glob_triggers_need_a_matching_note_even_on_a_whole_run(charter, kb):
     ],
 )
 def test_plugin_without_hook_is_skipped_per_edit_only(charter, kb, hook, argv, runs):
-    base = _probe(kb, hook=hook)
+    base = probe(kb, hook=hook)
 
     charter("validate", *argv, "--format", "json", cwd=base)
 
@@ -668,7 +639,7 @@ def test_plugin_without_hook_is_skipped_per_edit_only(charter, kb, hook, argv, r
 
 def test_new_leaves_out_a_plugin_without_hook(charter, kb):
     base = kb(MISBEHAVE.format(behaviour="crash"), ["misbehave"], notes={"Old.md": OLD}, kinds=NEW_KINDS)
-    _rewrite_manifest(base / "tools" / "misbehave", hook="false")
+    rewrite_manifest(base / "tools" / "misbehave", hook="false")
 
     result = charter("new", "entry", "Fresh", cwd=base)
 
@@ -678,7 +649,7 @@ def test_new_leaves_out_a_plugin_without_hook(charter, kb):
 
 
 def test_file_scope_plugin_gets_no_notes_when_only_the_contract_is_targeted(charter, kb):
-    base = _probe(kb, scope="file")
+    base = probe(kb, scope="file")
 
     charter("validate", "--file", "charter.yaml", "--format", "json", cwd=base)
 
@@ -701,7 +672,7 @@ def test_file_scope_plugin_gets_no_notes_when_only_the_contract_is_targeted(char
 )
 def test_invalid_scope_needs_triggers_or_hook_is_a_contract_error(charter, kb, changes, fragment):
     base = kb(PROBE, ["probe"])
-    _rewrite_manifest(base / "tools" / "probe", **changes)
+    rewrite_manifest(base / "tools" / "probe", **changes)
 
     diagnostics = _contract_error(charter, base)
 
@@ -711,7 +682,7 @@ def test_invalid_scope_needs_triggers_or_hook_is_a_contract_error(charter, kb, c
 
 def test_a_trigger_kind_the_contract_does_not_declare_is_a_contract_error_with_a_hint(charter, kb):
     base = kb(PROBE, ["probe"], kinds=KINDS_TWO)
-    _rewrite_manifest(base / "tools" / "probe", triggers="{kinds: [placs]}")
+    rewrite_manifest(base / "tools" / "probe", triggers="{kinds: [placs]}")
 
     diagnostics = _contract_error(charter, base)
 
@@ -723,7 +694,7 @@ def test_a_trigger_kind_the_contract_does_not_declare_is_a_contract_error_with_a
 
 def test_a_trigger_kind_the_contract_declares_loads(charter, kb):
     base = kb(PROBE, ["probe"], kinds=KINDS_TWO)
-    _rewrite_manifest(base / "tools" / "probe", triggers="{kinds: [place, entry]}")
+    rewrite_manifest(base / "tools" / "probe", triggers="{kinds: [place, entry]}")
 
     assert charter("validate", "--format", "json", cwd=base).exit_code == 0
 
@@ -732,7 +703,7 @@ def test_a_trigger_kind_the_contract_declares_loads(charter, kb):
 
 
 def test_dump_input_writes_the_exact_request_without_running_the_plugin(charter, kb):
-    base = _probe(kb, scope="file", needs="[body]")
+    base = probe(kb, scope="file", needs="[body]")
 
     dumped = charter("plugin", "run", "probe", "--dump-input", "--file", "notes/a.md", cwd=base)
 
@@ -743,13 +714,13 @@ def test_dump_input_writes_the_exact_request_without_running_the_plugin(charter,
 
 
 def test_dump_input_defaults_to_a_whole_run(charter, kb):
-    dumped = charter("plugin", "run", "probe", "--dump-input", cwd=_probe(kb))
+    dumped = charter("plugin", "run", "probe", "--dump-input", cwd=probe(kb))
 
     assert json.loads(dumped.stdout)["targets"] == EVERY_NOTE
 
 
 def test_dump_input_ignores_triggers_and_hook(charter, kb):
-    base = _probe(kb, triggers="{kinds: [place]}", hook="false")
+    base = probe(kb, triggers="{kinds: [place]}", hook="false")
 
     dumped = charter("plugin", "run", "probe", "--dump-input", "--file", "notes/a.md", cwd=base)
 
@@ -769,7 +740,7 @@ def test_plugin_run_reports_only_that_plugins_diagnostics(charter, kb):
 
 
 def test_plugin_run_runs_a_plugin_its_triggers_and_hook_would_skip(charter, kb):
-    base = _probe(kb, triggers="{kinds: [place]}", hook="false")
+    base = probe(kb, triggers="{kinds: [place]}", hook="false")
 
     result = charter("plugin", "run", "probe", "--file", "notes/a.md", "--format", "json", cwd=base)
 
@@ -796,14 +767,14 @@ def test_plugin_run_of_an_unknown_or_disabled_plugin_is_a_usage_error(charter, k
 
 
 def test_dump_input_of_an_unknown_plugin_is_a_usage_error(charter, kb):
-    result = charter("plugin", "run", "nope", "--dump-input", cwd=_probe(kb))
+    result = charter("plugin", "run", "nope", "--dump-input", cwd=probe(kb))
 
     assert result.exit_code == 2
     assert "usage/unknown-plugin" in result.stdout
 
 
 def _committed_probe(kb, **manifest):
-    base = _probe(kb, **manifest)
+    base = probe(kb, **manifest)
     run_git(base, "init", "-q", "--initial-branch=main")
     commit_files(base, {})
     return base
@@ -840,7 +811,7 @@ def test_before_compares_the_working_copy_with_the_last_commit_on_a_whole_run(ch
 
 
 def test_before_says_why_it_is_unavailable_outside_a_git_repository(charter, kb):
-    base = _probe(kb, needs="[before]")
+    base = probe(kb, needs="[before]")
 
     charter("validate", "--format", "json", cwd=base)
 
@@ -871,7 +842,7 @@ def test_dump_input_takes_the_staged_files_as_targets(charter, kb):
 def test_a_staged_deletion_runs_plugins_triggered_by_its_kind(charter, kb, deleted, runs):
     # A plugin that always fails shows whether it ran.
     base = kb(MISBEHAVE.format(behaviour="crash"), ["misbehave"], notes=LINKED, kinds=KINDS_TWO)
-    _rewrite_manifest(base / "tools" / "misbehave", triggers="{kinds: [place]}")
+    rewrite_manifest(base / "tools" / "misbehave", triggers="{kinds: [place]}")
     run_git(base, "init", "-q", "--initial-branch=main")
     commit_files(base, {})
     run_git(base, "rm", "-q", deleted)
@@ -883,7 +854,7 @@ def test_a_staged_deletion_runs_plugins_triggered_by_its_kind(charter, kb, delet
 
 @pytest.mark.parametrize("options", [["--profile", "ci"], ["--strict"], ["--strict", "--profile", "ci"]])
 def test_dump_input_refuses_severity_options(charter, kb, options):
-    base = _probe(kb)
+    base = probe(kb)
 
     result = charter("plugin", "run", "probe", "--dump-input", *options, "--format", "json", cwd=base)
 
@@ -893,7 +864,7 @@ def test_dump_input_refuses_severity_options(charter, kb, options):
 
 @pytest.mark.parametrize("given", [["--format", "text"], ["--format", "agent"], ["--format", "json"], ["--format=json"]])
 def test_dump_input_refuses_format_even_when_it_is_the_default(charter, kb, given):
-    base = _probe(kb)
+    base = probe(kb)
 
     result = charter("plugin", "run", "probe", "--dump-input", *given, cwd=base)
 
@@ -975,7 +946,7 @@ def test_describe_json_carries_plugin_rules_and_plugin_checks(charter, kb):
 def test_describing_a_kind_shows_the_rules_of_plugins_that_run_for_it(charter, kb, triggers, shown):
     base = kb(BANNED, ["banned-words"], kinds="kinds:\n  entry: {}\n  other: {}\n")
     if triggers is not None:
-        _rewrite_manifest(base / "tools" / "banned-words", triggers=triggers)
+        rewrite_manifest(base / "tools" / "banned-words", triggers=triggers)
 
     result = charter("describe", "entry", cwd=base)
 
@@ -986,7 +957,7 @@ def test_describing_a_kind_shows_the_rules_of_plugins_that_run_for_it(charter, k
 
 def test_plugin_without_docs_or_description_adds_no_rules_section(charter, kb):
     base = kb(BANNED, ["banned-words"])
-    _rewrite_manifest(base / "tools" / "banned-words", docs=None, description=None)
+    rewrite_manifest(base / "tools" / "banned-words", docs=None, description=None)
 
     result = charter("describe", cwd=base)
 
@@ -999,7 +970,7 @@ def test_plugin_without_docs_or_description_adds_no_rules_section(charter, kb):
 def test_plugin_with_only_a_description_shows_it_under_plugin_rules(charter, kb, docs):
     base = kb(BANNED, ["banned-words"])
     (base / "tools" / "banned-words" / "EMPTY.md").write_text("\n \n", encoding="utf-8")
-    _rewrite_manifest(base / "tools" / "banned-words", docs=docs)
+    rewrite_manifest(base / "tools" / "banned-words", docs=docs)
 
     result = charter("describe", cwd=base)
 
@@ -1014,7 +985,7 @@ def test_plugin_with_only_a_description_shows_it_under_plugin_rules(charter, kb,
 def _rules_shown(charter, kb, docs):
     base = kb(BANNED, ["banned-words"])
     (base / "tools" / "banned-words" / "RULES.md").write_text(docs, encoding="utf-8")
-    _rewrite_manifest(base / "tools" / "banned-words", description=None)
+    rewrite_manifest(base / "tools" / "banned-words", description=None)
     return charter("describe", cwd=base).stdout.partition("## `banned-words`\n\n")[2]
 
 

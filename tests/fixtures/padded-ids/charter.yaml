@@ -1,0 +1,12 @@
+charter: 1
+root: docs
+paths:
+  "Templates/**": {ignore: true}
+kinds:
+  adr:
+    path: "adr/{id} {title}.md"
+    template: Templates/ADR.md
+    fields:
+      kind: {type: string, required: true}
+      id: {type: int, required: true, width: 4, unique: true, auto: next, matches_filename: true}
+      title: {type: string, required: true}

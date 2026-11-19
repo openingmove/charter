@@ -18,9 +18,9 @@ Enter it from step 2, only after the human said yes to the offer. The offer is m
   - Add the bullet `- Contract: adopted` to `Draft contract`.
   - Mark only folders `migrate in place` or `leave as it is`, never `migrate`, and write no `Section map`: an adopted run fixes the notes where they stand. A folder is `leave as it is` only when the contract already governs it cleanly (a path rule ignores it or allows its files, or `charter validate --config <folder>/charter.yaml --all` reports nothing for it). Otherwise its notes are `Note fixes`.
   - Write the `Dates` section as usual when the contract has a cutoff, copied from it: Migrate dates the undated notes. The cutoff itself stays the contract's.
-  - Tick `Left folders have path policies`. Leave `Contract installed with ...` unticked: Migrate's install step checks that `charter.yaml` equals the draft, ticks the line and installs nothing.
+  - Tick `Left folders have path policies`: a `leave as it is` folder is governed already, so Migrate adds no path policy to the draft. Leave `Contract installed with ...` unticked: Migrate's install step checks that `charter.yaml` equals the draft, ticks the line and installs nothing.
   - Add the plan-ignore line to the draft, as the step says. It is the only line that makes the draft differ from `charter.yaml`.
 
 Migrate then runs unchanged, except that its install step has nothing to install (see Migrate step 7).
 
-Committing: the contract is already in the parent commit's tree, so any edit to a note under a `read-only` or `create-only` path breaks that policy in every commit, whatever the order. The only route is a `Charter-Allow` trailer in the commit message, which is the human's call; Migrate never adds one.
+Committing: the contract is already in the parent commit's tree, so any edit to a note under a `read-only` or `create-only` path breaks that policy in every commit, whatever the order. The only route is a `Charter-Allow` trailer in the commit message, one per file, in the form `Charter-Allow: <code> <path> — <reason>`; without the `— <reason>` part charter reports `override/invalid`. The trailer is the human's call; Migrate never adds one.

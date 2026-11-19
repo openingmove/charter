@@ -1,5 +1,6 @@
 import json
 import shutil
+import stat
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -91,6 +92,14 @@ def run_git(cwd, *args, input=None):
     text = not isinstance(input, bytes)
     finished = subprocess.run(["git", *options, *args], cwd=cwd, check=True, capture_output=True, text=text, input=input)
     return finished.stdout.strip()
+
+
+def delete_git_object(repo, object_id):
+    """Deletes a loose object, so git cannot read it. Git writes objects read-only, and Windows refuses to delete a
+    read-only file, so the file is made writable first."""
+    path = Path(repo) / ".git" / "objects" / object_id[:2] / object_id[2:]
+    path.chmod(stat.S_IREAD | stat.S_IWRITE)
+    path.unlink()
 
 
 def write_files(directory, files):

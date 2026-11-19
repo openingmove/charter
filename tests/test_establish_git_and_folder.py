@@ -297,9 +297,9 @@ def test_a_plan_with_no_git_bullet_still_works_because_migrate_asks_now():
     assert "No `Git` bullet (a plan from an older run): offer a new branch for the migration and let the human name it or decline" in way_back
 
 
-def test_the_readme_describes_the_new_folder_question_the_git_question_and_the_confirmation():
-    readme = _text(ROOT / "README.md")
-    establish = readme.split("- **Establish** (`/charter:establish`)")[1].split("- **Migrate**")[0]
+def test_the_manual_describes_the_new_folder_question_the_git_question_and_the_confirmation():
+    skills = _text(ROOT / "docs" / "guide" / "Skills.md")
+    establish = skills.split("- **Establish** (`/charter:establish`)")[1].split("- **Migrate**")[0]
 
     assert "in the existing folder or a new one" in establish
     assert "never a default" in establish

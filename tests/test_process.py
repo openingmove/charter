@@ -1,5 +1,6 @@
 import sys
 import time
+from types import SimpleNamespace
 
 import pytest
 from process_support import LEFTOVER_SECONDS, end, gone_within, windows_only
@@ -136,3 +137,31 @@ def test_no_suspended_command_is_left_when_an_interrupt_comes_before_the_job_tak
         assert gone_within(pids[0])
     finally:
         end(pids[0] if pids else None)
+
+
+def test_a_command_that_exits_as_the_deadline_passes_reports_its_return_code(tmp_path, monkeypatch):
+    from charter import process as process_module
+
+    started = []
+    start = process_module._start
+
+    def recorded(*args):
+        started.append(start(*args))
+        return started[-1]
+
+    calls = []
+
+    def monotonic():
+        # The deadline is set at 0. Every later reading is past it, and comes only once the command has exited.
+        calls.append(None)
+        if len(calls) == 1:
+            return 0.0
+        started[0].wait()
+        return 1000.0
+
+    monkeypatch.setattr(process_module, "_start", recorded)
+    monkeypatch.setattr(process_module, "time", SimpleNamespace(monotonic=monotonic))
+
+    finished = run_bounded([sys.executable, "-c", "pass"], tmp_path, b"", timeout=10, limit=65536)
+
+    assert (finished.returncode, finished.timed_out, finished.overflowed) == (0, False, False)
