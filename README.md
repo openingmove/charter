@@ -21,7 +21,7 @@ Editor-agnostic: plain Markdown with YAML frontmatter, Markdown links and/or `[[
 
 > **Beta.** charter is under active development. The command line, the contract format (`charter: 1`) and the skills may still change before 1.0; read the release notes before you upgrade, and pin a release tag in CI.
 >
-> Status: version 0.2.0, installed from this repository (not on PyPI). Delivered: the command line (`init`, `new`, `validate`, `describe`, `sweep`, `docs`, `survey`, `snapshot`, `plugin`), the optional agent, git and CI layers, and the Establish, Migrate and Evolve skills.
+> Status: version 0.2.1, installed from this repository (not on PyPI). Delivered: the command line (`init`, `new`, `validate`, `describe`, `sweep`, `docs`, `survey`, `snapshot`, `plugin`), the optional agent, git and CI layers, and the Establish, Migrate and Evolve skills.
 
 ## Documentation
 
@@ -91,9 +91,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: openingmove/charter@v0.2.0
+      - uses: openingmove/charter@v0.2.1
         with:
-          ref: v0.2.0
+          ref: v0.2.1
 ```
 
 Give `ref` the same tag as `uses`. `uses` picks the action's own files; `ref` picks the charter it installs, and without it that is `main`. Inputs and the commit range: see [GitHub Action](docs/guide/GitHub-Action.md).
