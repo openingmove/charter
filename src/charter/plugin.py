@@ -18,7 +18,7 @@ from charter.globs import compile_glob
 from charter.lock import Locked, content_hash, is_vendored
 from charter.schemacheck import errors as schema_errors
 from charter.schematext import located_message, schema_message
-from charter.tree import Tree
+from charter.tree import Tree, decode
 
 MANIFEST_FILENAME = "charter-plugin.yaml"
 DEFAULT_TIMEOUT_MS = 10_000
@@ -135,6 +135,7 @@ def load_plugins(
     *,
     builtins_with_params: Collection[str],
     kinds: Collection[str],
+    write_out: bool = True,
 ) -> tuple[dict[str, Plugin], list[Diagnostic]]:
     """The enabled plugins `checks:` names with a `source`, and what is wrong with any of them or their parameters.
     Of the built-in checks, only `builtins_with_params` take `with`, which the contract checks itself.
@@ -143,6 +144,9 @@ def load_plugins(
     `locked` is charter.lock's plugins by id. The lock covers only plugins vendored into `.charter/plugins/<id>`;
     a check whose `source` is elsewhere is a local-path plugin, whatever the lock says. Each plugin is read, hashed
     and run from its directory as `tree` holds it.
+
+    Without `write_out`, no plugin directory is written to disk: the manifest and `docs` file are read from `tree`
+    alone, and the plugins returned can be judged but never run, hashed or listed for links on disk.
     """
     plugins = {}
     problems: list[Diagnostic] = []
@@ -175,22 +179,31 @@ def load_plugins(
                 )
             )
             continue
-        try:
-            directory = tree.directory(source)
-        except OSError as error:
-            # Failing here would abort the whole run; the plugin alone fails, and the rest is still judged.
-            plugins[check_id] = _unavailable(check_id, source, error, yamlsource.line_of(node, ["checks", check_id]))
-            continue
-        manifest_problems = _manifest_problems(manifest := _read_manifest(directory), check_id)
+        if write_out:
+            try:
+                directory = tree.directory(source)
+            except OSError as error:
+                # Failing here would abort the whole run; the plugin alone fails, and the rest is still judged.
+                plugins[check_id] = _unavailable(
+                    check_id, source, error, yamlsource.line_of(node, ["checks", check_id])
+                )
+                continue
+            read = _disk_reader(directory)
+        else:
+            # Why: a plugin that is never run needs no files on disk; `directory` is a placeholder no consumer may
+            # read, like the stand-in's in `_unavailable`, and a path that does not exist.
+            directory = Path(source)
+            read = _tree_reader(tree, source)
+        manifest_problems = _manifest_problems(manifest := _read_manifest(read), check_id)
         if not manifest_problems:
             manifest_problems = _trigger_kind_problems(manifest, kinds)
         docs = None
         if not manifest_problems and "docs" in manifest:
-            docs = _read_docs(directory, manifest["docs"])
+            docs = _read_docs(read, manifest["docs"])
             if isinstance(docs, tuple):
                 manifest_problems = [docs]
         if manifest_problems:
-            shown = f"{source}/{MANIFEST_FILENAME}" if source != "." else MANIFEST_FILENAME
+            shown = _in_source(source, MANIFEST_FILENAME)
             problems.extend(
                 invalid(["checks", check_id, "source"], f"plugin manifest `{shown}`: {message}", hint)
                 for message, hint in manifest_problems
@@ -283,14 +296,41 @@ def _builtin_problems(
 
 def manifest_of(directory: Path) -> dict | list[_Problem]:
     """The valid manifest in `directory`, whatever check id it would be enabled under, or what is wrong with it."""
-    manifest = _read_manifest(directory)
+    manifest = _read_manifest(_disk_reader(directory))
     return problems if (problems := _manifest_problems(manifest, None)) else manifest
 
 
-def _read_manifest(directory: Path) -> dict | _Problem:
-    """The manifest in `directory` as YAML data, or why it could not be read."""
+# Reads the text of a file in a plugin's directory, by its path relative to that directory, with universal newlines
+# and no byte order mark. Raises OSError or UnicodeDecodeError.
+_Reader = Callable[[str], str]
+
+
+def _disk_reader(directory: Path) -> _Reader:
+    return lambda relative: (directory / relative).read_text(encoding="utf-8-sig")
+
+
+def _in_source(source: str, relative: str) -> str:
+    """The path of `relative`, a path in the plugin directory `source`, relative to the contract's directory."""
+    return relative if source == "." else f"{source}/{relative}"
+
+
+def _tree_reader(tree: Tree, source: str) -> _Reader:
+    """Reads the files of the plugin directory `source` from `tree` itself, writing nothing to disk."""
+
+    def read(relative: str) -> str:
+        path = _in_source(source, relative)
+        contents = tree.read([path])
+        if path not in contents:
+            raise FileNotFoundError(path)
+        return decode(contents[path])
+
+    return read
+
+
+def _read_manifest(read: _Reader) -> dict | _Problem:
+    """The manifest `read` gives as YAML data, or why it could not be read."""
     try:
-        text = (directory / MANIFEST_FILENAME).read_text(encoding="utf-8-sig")
+        text = read(MANIFEST_FILENAME)
     except (OSError, UnicodeDecodeError) as error:
         reason = "is not valid UTF-8 text" if isinstance(error, UnicodeDecodeError) else "could not be read"
         return (
@@ -306,7 +346,7 @@ def _read_manifest(directory: Path) -> dict | _Problem:
     return data
 
 
-def _read_docs(directory: Path, name: str) -> str | None | _Problem:
+def _read_docs(read: _Reader, name: str) -> str | None | _Problem:
     """The `docs` file's text without surrounding blank lines (None when empty), or why it could not be read."""
     hint = "`docs` is a Markdown file in the plugin's directory, relative to it."
     relative = contract_relative(name)
@@ -314,7 +354,7 @@ def _read_docs(directory: Path, name: str) -> str | None | _Problem:
         return f"`docs` file `{name}` is outside the plugin's directory.", hint
     try:
         # Universal newlines and no byte order mark, so the rulebook is the same bytes whoever checked it out.
-        lines = (directory / relative).read_text(encoding="utf-8-sig").splitlines()
+        lines = read(relative).splitlines()
     except (OSError, UnicodeDecodeError) as error:
         reason = "is not valid UTF-8 text" if isinstance(error, UnicodeDecodeError) else "could not be read"
         return f"`docs` file `{name}` {reason}.", hint

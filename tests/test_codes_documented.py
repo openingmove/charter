@@ -1,4 +1,4 @@
-"""Every diagnostic code charter can emit is named in the README.
+"""Every diagnostic code charter can emit is named in the user manual, `docs/guide/`.
 
 This reads source files rather than driving the CLI: no argv run can show which codes exist but never fired, the
 same reason the drift test on action/run.py reads source.
@@ -47,12 +47,12 @@ def test_the_scan_finds_codes_of_every_kind():
     assert len(codes) > 90
 
 
-def test_every_emitted_code_is_in_the_readme():
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+def test_every_emitted_code_is_in_the_manual():
+    manual = "\n".join(page.read_text(encoding="utf-8") for page in sorted((ROOT / "docs" / "guide").glob("*.md")))
 
-    missing = sorted(code for code in emitted_codes() if not _mentioned(code, readme))
+    missing = sorted(code for code in emitted_codes() if not _mentioned(code, manual))
 
     assert not missing, (
-        f"Not named in the README: {missing}. Add each to the README, or, if a string is not a diagnostic code, "
-        "add it to _NOT_CODES in this test."
+        f"Not named in docs/guide/: {missing}. Add each to the manual (the diagnostic-codes page lists the codes "
+        "no other page explains), or, if a string is not a diagnostic code, add it to _NOT_CODES in this test."
     )

@@ -16,7 +16,7 @@ Run every `charter` command from the knowledge-base folder, where the plan's pat
 
 Run `charter --version`. It prints `charter X.Y.Z`. This skill needs 0.1.0 or newer.
 
-If the command is missing or the version is older, stop and tell the human how to fix it, then start Migrate again. Missing: the README's "Install" section has the exact command, which is `uv tool install` with this repository's git URL or path. Too old: `uv tool upgrade charter`. Install nothing yourself.
+If the command is missing or the version is older, stop and tell the human how to fix it, then start Migrate again. Missing: the "Install" page of the charter manual (`docs/guide/Install.md` in the charter repository) has the exact command, which is `uv tool install` with this repository's git URL or path. Too old: `uv tool upgrade charter`. Install nothing yourself.
 
 Done when `charter --version` reports 0.1.0 or newer.
 
@@ -59,12 +59,12 @@ Done when every line above `Links updated` is ticked.
 ## 6. Settle links, left folders and validation
 
 1. Repoint each link that `charter validate --config <draft> --all --format json` reports as `links/unresolved`, as [moving.md](moving.md) says (with a `Source` bullet, in the new notes only, and without `charter sweep`), and tick `Links updated`.
-2. With a `Source` bullet, skip this item: the source lies outside the contract's root and needs no rule, and Establish ticked the line. Otherwise give each `leave as it is` folder except `.` `"<folder>/**": {untyped: allow, edit: read-only}` under `paths:` in the draft, where it is missing (the root `.` holds only ignored files, so `./**` would match nothing and it gets no rule), and tick `Left folders have path policies`.
+2. With a `Source` bullet, skip this item: the source lies outside the contract's root and needs no rule, and Establish ticked the line. Otherwise give each `leave as it is` folder except `.` `"<folder>/**": {untyped: allow, edit: read-only}` under `paths:` in the draft, where it is missing (the root `.` holds only ignored files, so `./**` would match nothing and it gets no rule), and tick `Left folders have path policies`. For a plan with `- Contract: adopted`, add no rule: Establish marks a folder `leave as it is` only when the contract already governs it and ticks the line, and the draft must stay equal to `charter.yaml` apart from the plan-ignore line.
 3. Run `charter validate --config <draft> --all --format json`, put each judgement call to the human, and run it again until the findings left are the expected ones below. Tick the validate line.
 
 A note dated before the cutoff reports no `structure` finding, so any `structure/` finding on a dated note is real: check its date is the one in the plan and before the cutoff.
 
-Expected findings: `paths/read-only` or `paths/create-only` on files this migration changed. Validating against the draft compares edit policies with git's last commit, which predates the migration. Report them to the human, fix none, add no trailer. A commit is judged by the contract in its own tree, so for a contract Migrate installed, tell the human to commit the migrated notes first, without `charter.yaml` (that commit's tree holds no contract, so charter does not judge it), and the contract, the rulebook and the agent files second. For a plan with `- Contract: adopted` the contract is already in the parent commit, so that order does not help: the only route is a `Charter-Allow` trailer in the commit message. The trailer is the human's call, and you never add one. Git hooks are installed after the migration: a pre-commit hook that is already installed stops the notes-first commit (`usage/contract-not-staged`), and the human then commits notes and contract together with the trailer. Never suggest bypassing a hook.
+Expected findings: `paths/read-only` or `paths/create-only` on files this migration changed. Validating against the draft compares edit policies with git's last commit, which predates the migration. Report them to the human, fix none, add no trailer. A commit is judged by the contract in its own tree, so for a contract Migrate installed, tell the human to commit the migrated notes first, without `charter.yaml` (that commit's tree holds no contract, so charter does not judge it), and the contract, the rulebook and the agent files second. Git hooks are installed after the migration, but a pre-commit hook that is already installed stops that notes-first commit (`usage/contract-not-staged`), and the human then commits notes and contract together with a trailer. For a plan with `- Contract: adopted` the contract is already in the parent commit, so that order does not help and that hook code does not fire: the only route is a `Charter-Allow` trailer in the commit message. A trailer names one file, in the form `Charter-Allow: <code> <path> — <reason>`; without the `— <reason>` part charter reports `override/invalid`. The trailer is the human's call, and you never add one. Never suggest bypassing a hook.
 
 Done when steps 1 to 3 are ticked and no finding of severity `error` or `warning` is left except the expected ones.
 
@@ -82,7 +82,7 @@ Done when `charter docs --check` exits 0 and `charter validate` shows nothing bu
 
 ## 8. State the undo
 
-Say the undo you kept in step 7, in the form way-back.md gives, and run nothing of it. When step 6 reported expected edit-policy findings, repeat the commit route from there (the two-commit order, or the trailer for an adopted plan).
+Say the undo you kept in step 7, in the form way-back.md gives, and run nothing of it. When step 6 reported expected edit-policy findings, repeat the commit route from there (the two-commit order, or the trailer for an adopted plan). When you name the trailer, give its form, `Charter-Allow: <code> <path> — <reason>`: without the `— <reason>` part charter reports `override/invalid`.
 
 Done when you have said it.
 

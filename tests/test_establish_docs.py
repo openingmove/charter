@@ -1,4 +1,4 @@
-"""The Establish skill, the README and the example READMEs say the same thing about the same steps.
+"""The Establish skill, the user manual and the example READMEs say the same thing about the same steps.
 
 Skills and READMEs are instruction text, so these tests read them for the sentences a dry run found guessed.
 """
@@ -14,8 +14,10 @@ def _text(path):
     return re.sub(r"\s+", " ", path.read_text("utf-8"))
 
 
-def test_every_readme_path_policy_with_read_only_leaves_untyped_files_allowed():
-    policies = re.findall(r"^\s*\"[^\"]+\":\s*\{[^}\n]*edit: read-only[^}\n]*\}", (ROOT / "README.md").read_text("utf-8"), re.M)
+def test_every_manual_path_policy_with_read_only_leaves_untyped_files_allowed():
+    pages = [ROOT / "README.md", *(ROOT / "docs" / "guide").glob("*.md")]
+    manual = "\n".join(page.read_text("utf-8") for page in pages)
+    policies = re.findall(r"^\s*\"[^\"]+\":\s*\{[^}\n]*edit: read-only[^}\n]*\}", manual, re.M)
 
     assert policies
     assert all("untyped: allow" in policy for policy in policies), policies

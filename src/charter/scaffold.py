@@ -13,14 +13,13 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from charter import yamlsource
-from charter.checks.paths import edit_violation
+from charter.checks.paths import edit_violation_for
 from charter.collection import holders, members_by_kind
 from charter.contract import Contract, Kind, Shape, Variant
 from charter.diagnostics import RUN_FAILURES, Diagnostic, Refused, Severity, code_list, suggestion, yaml_text
 from charter.fields import NEXT, TODAY, Field, all_hold, same_value
 from charter.history import ADDED
 from charter.index import TITLE, build_index
-from charter.pathpolicy import READ_ONLY
 from charter.pathpattern import Unrenderable, Unsafe
 from charter.profiles import Profile
 from charter.template import DATE, fill, outline
@@ -59,7 +58,8 @@ def create(
     shape, values, unfilled = _filled(contract, given, today)
     problems = [*unfilled.values(), *_missing_fields(contract, named, shape, values, unfilled)]
 
-    texts = {name: yaml_text(value) for name, value in values.items()}
+    # A padded field reads the same in the body as in the file name.
+    texts = {name: _text(shape.fields.get(name), value) for name, value in values.items()}
     # One value set for body and outline, so the printed headings are the written ones.
     filled = {DATE: today.isoformat(), **texts}
     body = fill(shape.template.text, filled) if shape.template is not None else ""
@@ -81,6 +81,10 @@ def create(
     if write:
         _write(contract, path, text)
     return Draft(path, shape.name, outline(shape.template, filled), tuple(problems))
+
+
+def _text(field: Field | None, value: Any) -> str:
+    return field.text(value) if field is not None else yaml_text(value)
 
 
 def new_command(contract: Contract, shape: Shape) -> str:
@@ -317,11 +321,9 @@ def _checked(
                 problems.append(_exists(path))
         except _NameTooLong:
             problems.append(_name_too_long(path))
-    if isinstance(placed, str) and contract.holds(path):
-        # Creation is an addition, which only `read-only` forbids; no history is needed to know that.
-        policy = contract.path_policy(path).get("edit")
-        if policy is not None and policy.value == READ_ONLY:
-            problems.append(edit_violation(path, policy, ADDED))
+    # Creation is an addition, which an edit policy can judge without history.
+    if isinstance(placed, str) and (violation := edit_violation_for(contract, path, ADDED)) is not None:
+        problems.append(violation)
     if contract.ignores(path):
         return [
             *problems,

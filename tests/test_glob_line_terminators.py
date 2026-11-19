@@ -5,6 +5,8 @@ from hostile_names import git_tree_with_paths
 from charter.globs import compile_glob
 
 # Built with chr() so no invisible character sits in this source file.
+# Only LF needs the DOTALL flag on the compiled pattern: `.` already matches the other five, and `[^/]` matches
+# all six. The other five are regression guards.
 TERMINATORS = [chr(code) for code in (0x0A, 0x0D, 0x0B, 0x0C, 0x2028, 0x85)]
 NEWLINE = chr(10)
 
@@ -87,7 +89,8 @@ def _kb_with_newline_file(make_kb, folder, text):
 
 def _full_run(charter, kb):
     diagnostics = charter("validate", "--profile", "ci", "--format", "json", cwd=kb).json()["diagnostics"]
-    return [d for d in diagnostics if d["severity"] != "info"]
+    # The knowledge base is not a git repository, so charter says it skipped the edit policies; nothing else is dropped.
+    return [d for d in diagnostics if d["code"] != "paths/edit-skipped"]
 
 
 def test_an_ignored_newline_named_file_is_not_validated(charter, make_kb):
@@ -102,3 +105,16 @@ def test_kinds_apply_to_a_newline_named_file(charter, make_kb):
     diagnostics = _full_run(charter, kb)
 
     assert [d["path"] for d in diagnostics] == [f"notes/Typed/nl{NEWLINE}name.md"], diagnostics
+
+
+def test_kinds_apply_to_a_staged_newline_named_file(charter, make_kb):
+    # Staged straight into the index, so this runs where the file system cannot hold the name. Git for Windows
+    # refuses a control character in a staged name while core.protectNTFS is on.
+    name = f"notes/Typed/nl{NEWLINE}name.md"
+    kb = _repo(make_kb, {})
+    run_git(kb, "config", "core.protectNTFS", "false")
+    git_tree_with_paths(kb, [name], WRONG_KIND)
+
+    result = charter("validate", "--staged", "--commit-msg-installed", "--profile", "ci", "--format", "json", cwd=kb)
+
+    assert [(d["path"], d["code"]) for d in result.json()["diagnostics"]] == [(name, "paths/kind-not-allowed")]

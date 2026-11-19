@@ -1,6 +1,6 @@
 import pytest
 from charter import git as charter_git
-from conftest import commit_files, run_git
+from conftest import FIXTURES, commit_files, delete_git_object, run_git
 
 CONTRACT = """\
 charter: 1
@@ -422,3 +422,69 @@ def test_an_author_date_that_is_not_a_day_is_a_git_failure(charter, make_kb, mon
     diagnostic = result.json()["diagnostics"][0]
     assert "git 2.25" in diagnostic["message"]
     assert "Upgrade git" in diagnostic["hint"]
+
+
+VENDORED_MANIFEST = ".charter/plugins/todo-free/charter-plugin.yaml"
+
+
+def _with_vendored_plugin(charter, make_kb):
+    """A repository whose base commit has no plugin, then a commit that vendors one; returns it and the base."""
+    kb, base = _base(make_kb)
+    assert charter("plugin", "add", "--dev", str(FIXTURES / "plugins" / "todo-free"), cwd=kb).exit_code == 0
+    commit_files(kb, {}, "Vendor a plugin")
+    return kb, base
+
+
+def test_range_writes_no_plugin_out_of_a_commit(charter, make_kb, monkeypatch):
+    kb, base = _with_vendored_plugin(charter, make_kb)
+    commit_files(kb, {"notes/free.md": EDITED}, "Edit a free note")
+    written = []
+    real_directory = charter_git.GitTree.directory
+
+    def recorded(self, path):
+        written.append(path)
+        return real_directory(self, path)
+
+    # GitTree.directory is the one place a commit's files are written to disk.
+    monkeypatch.setattr(charter_git.GitTree, "directory", recorded)
+    result = _range(charter, kb, f"{base}..HEAD")
+
+    assert (result.exit_code, _diagnostics(result)) == (0, [])
+    assert written == []
+
+
+@pytest.mark.parametrize(
+    ("manifest", "problem"),
+    [
+        ("charter_plugin: 1\nid: todo-free\nversion: 1.2.0\n", "plugin manifest"),
+        (
+            'charter_plugin: 1\nid: todo-free\nversion: 1.2.0\nrun: ["python", "check.py"]\ndocs: RULES.md\n',
+            "`docs` file `RULES.md` could not be read",
+        ),
+    ],
+    ids=["manifest", "docs"],
+)
+def test_a_commit_with_an_invalid_plugin_manifest_is_a_contract_error_naming_it(charter, make_kb, manifest, problem):
+    kb, base = _with_vendored_plugin(charter, make_kb)
+    broken = commit_files(kb, {VENDORED_MANIFEST: manifest}, "Break the plugin manifest")
+
+    result = _range(charter, kb, f"{base}..HEAD")
+
+    assert result.exit_code == 2
+    diagnostics = result.json()["diagnostics"]
+    assert [(d["path"], d["code"]) for d in diagnostics] == [("charter.yaml", "contract/invalid")]
+    assert f"commit {_short(kb, broken)}" in diagnostics[0]["message"]
+    assert problem in diagnostics[0]["message"]
+
+
+def test_a_plugin_manifest_git_cannot_read_in_a_commit_is_a_git_failure(charter, make_kb):
+    kb, base = _with_vendored_plugin(charter, make_kb)
+    blob = run_git(kb, "rev-parse", f"HEAD:{VENDORED_MANIFEST}").strip()
+    delete_git_object(kb, blob)
+
+    result = _range(charter, kb, f"{base}..HEAD")
+
+    assert result.exit_code == 2
+    assert "Traceback" not in result.stderr
+    assert _diagnostics(result) == [("charter.yaml", "error", "usage/git-failed")]
+    assert result.json()["diagnostics"][0]["message"].startswith("--range could not read ")

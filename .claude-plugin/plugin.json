@@ -1,6 +1,6 @@
 {
   "name": "charter",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Skills for the contract of a charter knowledge base: write it with Establish, bring files into line with Migrate, change it safely with Evolve.",
   "repository": "https://github.com/openingmove/charter",
   "license": "MIT",

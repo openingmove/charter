@@ -1,5 +1,6 @@
 """Running a command as an argv list, without a shell, with bounded time and output."""
 
+import contextlib
 import os
 import signal
 import subprocess
@@ -42,8 +43,8 @@ def run_bounded(
     env: Mapping[str, str] | None = None,
 ) -> Finished:
     """Runs `argv` in `cwd` with `stdin`, and `env` in place of charter's own environment if given, stopping it
-    and everything it started after `timeout` seconds or once stdout or stderr passes `limit` bytes.
-    Raises OSError when the command cannot start."""
+    and everything it started after `timeout` seconds or once stdout or stderr passes `limit` bytes. A process
+    the command left running when it exited is ended too. Raises OSError when the command cannot start."""
     with _job() as job:
         process = _start(argv, cwd, env, job.creationflags)
         try:
@@ -68,18 +69,23 @@ def run_bounded(
             thread.start()
 
         deadline = time.monotonic() + timeout
-        timed_out = False
         while process.poll() is None and not overflow.is_set():
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                timed_out = True
                 break
             overflow.wait(min(remaining, _POLL_SECONDS))
         stopped = process.poll() is None
+        # Decided from the last poll: a command that exits just as the deadline passes has finished, not timed out.
+        timed_out = stopped and not overflow.is_set()
         if stopped:
             _stop(process, job)
             process.wait()
-        # Ends every process the command left running, which also ends the drain early when one holds its output.
+        elif os.name != "nt":
+            # The command is gone, but its process group may not be: end what it left running.
+            with contextlib.suppress(ProcessLookupError, PermissionError):
+                os.killpg(process.pid, signal.SIGKILL)
+        # On Windows, ends every process the command left running. On both platforms, ending those processes also
+        # ends the drain early when one holds the command's output open.
         job.close()
         drained_by = time.monotonic() + _DRAIN_SECONDS
         for reader in readers:

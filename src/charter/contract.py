@@ -41,7 +41,6 @@ from charter.pathpattern import (
     Unrenderable,
     Unsafe,
     segment_problem,
-    text_of,
 )
 from charter.pathpolicy import POLICY_KEYS, PathPolicies, Setting
 from charter.plugin import Plugin, load_plugins
@@ -181,7 +180,7 @@ CONTRACT_SCHEMA = {
         "agent_files": _NAMES_SCHEMA,
         "agents": {
             "type": "object",
-            "properties": {"file": {"type": "string", "minLength": 1}},
+            "properties": {"file": {"type": "string", "minLength": 1}, "guard": {"type": "boolean"}},
             "additionalProperties": False,
         },
         "docs": {
@@ -317,7 +316,7 @@ class Shape:
         for name, field in self.fields.items():
             if field.type != "list" and _present(frontmatter.get(name)):
                 value = self.value_of(frontmatter, name)
-                texts[name] = text_of(value) if value is not None else None
+                texts[name] = unicodedata.normalize("NFC", field.text(value)) if value is not None else None
         return texts
 
 
@@ -412,6 +411,9 @@ class Contract(PluginSettings):
     # The one agent-instruction file (`agents.file`) that must link to docs_output, in diagnostic form; None
     # when the contract declares no `agents:` section, which leaves the agent layer off.
     agents_file: str | None
+    # Whether `agents.guard` opts into the contract guard, the Claude Code hooks that refuse an agent's write to
+    # `charter.yaml` in a session where the human started no charter skill.
+    agent_guard: bool
     # Enabled external plugins by check id.
     plugins: dict[str, Plugin]
     profiles: dict[str, ProfileSeverities]
@@ -705,6 +707,7 @@ def load_contract(
     core_codes: Collection[str],
     optional_checks: Mapping[str, OptionalCheck],
     tree: Tree | None = None,
+    write_plugins: bool = True,
 ) -> Contract:
     """Load and validate a contract. Raises ContractError carrying `contract/*` diagnostics.
 
@@ -712,7 +715,8 @@ def load_contract(
     reported outside any check. Together they are what `checks:` and `profiles:` may name. `optional_checks`
     are the built-in checks that stay off until `checks:` enables them, by id.
     The contract, its templates, the lock, the plugins and the knowledge base it governs are read from `tree`,
-    by default the working copy.
+    by default the working copy. Without `write_plugins`, no plugin directory is written out of `tree` to disk,
+    and the contract's plugins are judged but cannot be run.
     """
     config_path, tree, data, node, invalid = _read_contract(config_path, tree)
     problems = [
@@ -763,6 +767,7 @@ def load_contract(
         locked,
         builtins_with_params=optional_checks,
         kinds=data["kinds"],
+        write_out=write_plugins,
     )
     check_configs = _check_configs(data.get("checks", {}), off_by_default)
     semantic_problems = [
@@ -832,6 +837,7 @@ def load_contract(
         docs_output=contract_relative(docs_output),
         docs_declared="docs" in data,
         agents_file=contract_relative(agents_file) if agent_layer else None,
+        agent_guard=agent_layer and (data["agents"] or {}).get("guard") is True,
         checks=check_configs,
         plugins=plugins,
         locked=locked,

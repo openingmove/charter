@@ -8,9 +8,10 @@ from dataclasses import asdict, dataclass
 from typing import Any, NamedTuple
 
 from charter.body import heading, parse_body
-from charter.contract import AGENTS_INCLUDE, Contract, Kind, Shape, StructureCutoff, Variant
+from charter.contract import AGENTS_INCLUDE, CONTRACT_FILENAME, Contract, Kind, Shape, StructureCutoff, Variant
 from charter.diagnostics import code_list, code_span, yaml_text
-from charter.fields import NEXT, TODAY, Field, describe_all
+from charter.fields import NEXT, TODAY, Field, describe_all, zero_padded
+from charter.guard import typed_skills
 from charter.pathpolicy import POLICY_KEYS
 from charter.plugin import Plugin
 from charter.prose import LIST_ITEM
@@ -45,6 +46,8 @@ class FieldDescription:
     to: tuple[str, ...] | None
     unique: bool
     matches_filename: bool
+    # Digits an `int` value is zero padded to wherever it becomes text; None for plain decimal.
+    width: int | None
     default: Any
     auto: str | None
     # Names the note's kind.
@@ -141,6 +144,8 @@ class Description:
     paths: tuple[PolicyDescription, ...]
     checks: tuple[CheckDescription, ...]
     plugin_rules: tuple[PluginRules, ...]
+    # Whether the contract guard is on (`agents.guard`); shown only in a whole description.
+    guard: bool = False
 
 
 def build_description(contract: Contract, named: str | None = None) -> Description:
@@ -162,6 +167,7 @@ def build_description(contract: Contract, named: str | None = None) -> Descripti
                 *(_check_description(contract, plugin.id, (), plugin.source) for plugin in contract.plugins.values()),
             ),
             plugin_rules=_plugin_rules(contract.plugins.values(), None),
+            guard=contract.agent_guard,
         )
     kind, variant = named_shape(contract, named)
     shapes = _kind_shapes(contract, kind) if variant is None else [_shape_of(contract, kind, variant)]
@@ -262,6 +268,7 @@ def _field_description(
         to=field.to,
         unique=field.unique,
         matches_filename=field.matches_filename,
+        width=field.width,
         default=field.default,
         auto=field.auto,
         discriminator=discriminator,
@@ -304,6 +311,7 @@ def to_json(description: Description) -> str:
     if description.whole:
         document["paths"] = [asdict(policy) for policy in description.paths]
         document["checks"] = [asdict(check) for check in description.checks]
+        document["guard"] = description.guard
     document["plugin_rules"] = [asdict(rules) for rules in description.plugin_rules]
     return json.dumps(document, indent=2, ensure_ascii=False, default=_iso_date) + "\n"
 
@@ -326,7 +334,8 @@ def _iso_date(value: Any) -> str:
 
 
 def to_markdown(description: Description) -> str:
-    """The whole contract under `# Kinds`, `# Path policies` and `# Checks`; selected kinds as top-level sections.
+    """The whole contract under `# Kinds`, `# Path policies`, `# Checks` and, when it is on, `# Contract guard`;
+    selected kinds as top-level sections.
 
     Either way, plugin rule docs follow under `# Plugin rules`.
     """
@@ -341,8 +350,23 @@ def to_markdown(description: Description) -> str:
         lines.extend(["No kinds are declared.", ""])
     lines.extend(_policy_lines(description))
     lines.extend(_check_lines(description.checks))
+    lines.extend(_guard_lines(description.guard))
     lines.extend(_plugin_rule_lines(description.plugin_rules))
     return "\n".join(lines)
+
+
+def _guard_lines(guard: bool) -> Iterator[str]:
+    if not guard:
+        return
+    yield "# Contract guard"
+    yield ""
+    yield (
+        f"The contract guard is on. In Claude Code with the charter plugin, a write to `{CONTRACT_FILENAME}` is "
+        f"refused unless the human typed {typed_skills()} in that session. An agent cannot start those skills, "
+        "and a yes in the conversation does not lift the guard: when the contract needs to change, stop and ask the "
+        "human to run `/charter:evolve`."
+    )
+    yield ""
 
 
 _UNDECLARED = {"error": "an error", "warning": "a warning", None: "allowed"}
@@ -430,6 +454,8 @@ def _value(field: FieldDescription, shape: ShapeDescription) -> str:
         notes.append(f"allowed only when {field.allowed_when}")
     if field.unique:
         notes.append(f"unique among `{shape.kind}` notes")
+    if field.width is not None:
+        notes.append(f"written zero padded to {field.width} digits (`1` is `{zero_padded(1, field.width)}`)")
     if field.matches_filename:
         notes.append("matches its part of the file name")
     if field.default is not None:
