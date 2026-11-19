@@ -431,6 +431,9 @@ def _prepare_run(
         contract = contract_at(config, tree=change.tree if change else None)
     except ContractError as error:
         return error.diagnostics
+    except git.GitError as error:
+        # Only a git tree raises it, e.g. a staged plugin's blob that git cannot read while writing it out.
+        return [_git_problem(config, error, "--staged")]
     if args.file and (missing := _missing_files(contract, args.file)):
         return missing
     try:
@@ -571,7 +574,8 @@ def _commit_findings(
         try:
             contract = contracts.get(
                 change.tree,
-                lambda tree: contract_at(config, tree=tree),
+                # --range runs no plugin, so none is written out of the commit.
+                lambda tree: contract_at(config, tree=tree, write_plugins=False),
             )
             profile = select_profile(contract, args.profile, "ci", os.environ)
         except ContractError as error:

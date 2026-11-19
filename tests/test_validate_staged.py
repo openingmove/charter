@@ -389,6 +389,36 @@ def test_a_staged_plugin_with_a_file_name_no_file_system_accepts_is_a_plugin_fai
     assert ("notes/a.md", "links/unresolved") in _codes(result)
 
 
+def _stage_unreadable_plugin_file(kb):
+    """Stages an edit to the plugin's script, then deletes the blob git would read it from."""
+    _stage(kb, {"tools/todo-free/check.py": "import sys\n# edited\n", "notes/a.md": PLAN + "\nMore.\n"})
+    blob = run_git(kb, "rev-parse", ":tools/todo-free/check.py")
+    (kb / ".git" / "objects" / blob[:2] / blob[2:]).unlink()
+
+
+def _assert_git_failed_without_traceback(result):
+    assert result.exit_code == 2
+    assert "Traceback" not in result.stderr
+    assert _codes(result) == [("charter.yaml", "usage/git-failed")]
+    assert result.json()["diagnostics"][0]["message"].startswith("--staged could not read what is staged: ")
+
+
+def test_a_staged_plugin_file_git_cannot_read_is_a_git_failure(charter, make_kb):
+    kb = _plugin_kb(make_kb)
+    _stage_unreadable_plugin_file(kb)
+
+    _assert_git_failed_without_traceback(_staged(charter, kb))
+
+
+def test_plugin_run_on_a_staged_plugin_file_git_cannot_read_is_a_git_failure(charter, make_kb):
+    kb = _plugin_kb(make_kb)
+    _stage_unreadable_plugin_file(kb)
+
+    result = charter("plugin", "run", "todo-free", "--staged", "--profile", "ci", "--format", "json", cwd=kb)
+
+    _assert_git_failed_without_traceback(result)
+
+
 def test_validate_range_over_a_plugin_that_cannot_be_written_out_does_not_crash(charter, make_kb):
     kb = _plugin_kb(make_kb)
     base = run_git(kb, "rev-parse", "HEAD").strip()

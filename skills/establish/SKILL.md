@@ -16,7 +16,7 @@ This skill makes no commit and no push unless the human picked one in step 7. Th
 
 Run `charter --version`. It prints `charter X.Y.Z`. This skill needs 0.1.0 or newer.
 
-If the command is missing or the version is older, stop and tell the human how to fix it, then start Establish again. Missing: the README's "Install" section has the exact command, which is `uv tool install` with this repository's git URL or path. Too old: `uv tool upgrade charter`. Install nothing yourself.
+If the command is missing or the version is older, stop and tell the human how to fix it, then start Establish again. Missing: the "Install" page of the charter manual (`docs/guide/Install.md` in the charter repository) has the exact command, which is `uv tool install` with this repository's git URL or path. Too old: `uv tool upgrade charter`. Install nothing yourself.
 
 Done when `charter --version` reports 0.1.0 or newer.
 
@@ -28,7 +28,7 @@ Then ask: "build the knowledge base in the existing folder, or in a NEW folder, 
 
 If `<folder>/charter.migration-plan.md` exists, a hand-off is under way: stop, tell the human to run `/charter:migrate`, which resumes at the first unticked line, and write nothing. The plan holds Migrate's progress, so Establish never overwrites it; only the human deletes it, after undoing the migration. This check comes first, so an adopted hand-off never offers adopt again.
 
-Otherwise, if `<folder>/charter.yaml` exists, the folder already has a contract, and changing it is `/charter:evolve`. Run `charter validate --config <folder>/charter.yaml --all --strict --format json` and decide: exit 2 (the contract does not load) means stop, and so does output with no diagnostic of severity `error` or `warning` (every note already fits; this is step 11's rule), since there is nothing here for Establish to do. Use `--strict` and read the diagnostics, never the plain exit code: under the default profile a note with no frontmatter is a warning and the exit code is still 0. Any `error` or `warning` means notes that do not fit the contract the human wrote: offer to adopt it, which keeps that contract as it is and plans the fixes to the notes, and follow [adopt.md](adopt.md) if the human says yes. On a no, stop. A `charter.yaml` inside the existing folder does not stop a run that builds a NEW folder: that folder is only a read-only source. If the draft exists (and there is no plan), ask whether to resume from it or overwrite it.
+Otherwise, if `<folder>/charter.yaml` exists, the folder already has a contract, and changing it is `/charter:evolve`. Run `charter validate --config <folder>/charter.yaml --all --strict --format json` and decide: exit 2 (the contract does not load) means show the human the load error and stop, and so does output with no diagnostic of severity `error` or `warning` (every note already fits; this is step 11's rule), since there is nothing here for Establish to do. Use `--strict` and read the diagnostics, never the plain exit code: under the default profile a note with no frontmatter is a warning and the exit code is still 0. Any `error` or `warning` means notes that do not fit the contract the human wrote: offer to adopt it, which keeps that contract as it is and plans the fixes to the notes, and follow [adopt.md](adopt.md) if the human says yes. On a no, stop. A `charter.yaml` inside the existing folder does not stop a run that builds a NEW folder: that folder is only a read-only source. If the draft exists (and there is no plan), ask whether to resume from it or overwrite it.
 
 Done when you have told the human the folder (and, for a new folder, the existing folder as its source) and the draft path.
 
@@ -54,7 +54,7 @@ Done when every call has an answer.
 
 ## 6. Propose the contract
 
-Read the packaged example kinds in [kinds/](kinds/) for well-formed shapes: ADR, decision record, concept note, meeting note, glossary, research note. They inform your proposal; the human never picks from them. Propose the kinds, fields, links, folders and filenames the answers call for, in plain words, and write no file yet. For a new folder, also agree which documents of the existing folder are brought in and which are left behind; step 13 turns that into the plan. Contract syntax: the README's "Usage" section and the example kinds.
+Read the packaged example kinds in [kinds/](kinds/) for well-formed shapes: ADR, decision record, concept note, meeting note, glossary, research note. They inform your proposal; the human never picks from them. Propose the kinds, fields, links, folders and filenames the answers call for, in plain words, and write no file yet. For a new folder, also agree which documents of the existing folder are brought in and which are left behind; step 13 turns that into the plan. Contract syntax: the charter manual's "Contract syntax" page (`docs/guide/Contract-syntax.md`) and the example kinds.
 
 Then settle the template question for each kind, as section 1 of [templates.md](templates.md) says: ask in domain terms whether its notes share a fixed outline ("No template" is a valid answer and is recorded). Step 9 writes the files.
 
@@ -142,6 +142,8 @@ Done when both exit 0 and you have told the human which files were written: `cha
 
 If the human retired an old rulebook, tell them which line of the agent file points at it and that they may remove it. Edit nothing of theirs.
 
+Offer the contract guard, as [guard.md](guard.md) says.
+
 Then make the commit step 7 describes, if the human picked one, and go to step 14.
 
 ## 13. Hand off to Migrate
@@ -160,14 +162,16 @@ For a new folder, the plan's `Draft contract` also holds `- Source:`, the existi
 
 Add `"charter.migration-plan.md": {ignore: true}` under `paths:` in the draft, so `charter validate --config <draft>` never reads the plan as a note.
 
+Offer the contract guard, as [guard.md](guard.md) says: on a yes it goes into the draft.
+
 Tell the human to run `/charter:migrate`, naming the plan and draft paths, and to keep both files. A skill started by the human cannot start another skill, so say it in those words.
 
 Done when the plan and draft exist at the named paths and the human has the command. Then make the commit step 7 describes, if the human picked one, and go to step 14.
 
 ## 14. Mention the layers
 
-- Git hooks, offered once as an option: they check each commit and protect only this clone. If the human wants them, follow the README's "Git hooks" section. They need the contract installed, so after a hand-off that means after Migrate finishes. They run from the repository's top directory, so say so when the folder is not the repository root.
-- CI, the backstop that covers collaborators: the charter GitHub Action, added to a workflow as the README's "GitHub Action" section describes, with `config: <folder>/charter.yaml` (once per knowledge base) and `fetch-depth: 0`.
+- Git hooks, offered once as an option: they check each commit and protect only this clone. If the human wants them, follow the charter manual's "Git hooks" page (`docs/guide/Git-hooks.md`). They need the contract installed, so after a hand-off that means after Migrate finishes. They run from the repository's top directory, so say so when the folder is not the repository root.
+- CI, the backstop that covers collaborators: the charter GitHub Action, added to a workflow as the charter manual's "GitHub Action" page (`docs/guide/GitHub-Action.md`) describes, with `config: <folder>/charter.yaml` (once per knowledge base) and `fetch-depth: 0`.
 
 Done when you have said both and stopped.
 
@@ -175,6 +179,6 @@ Done when you have said both and stopped.
 
 A cutoff, once the human has approved the draft, is the human's. Establish proposes it once and does nothing about it afterwards: a human who wants a different date edits the contract by hand.
 
-This skill writes the draft, the template files of step 9, the plan and, in step 12, the files `charter init` writes, and no other file, all of them listed to the human in step 7 first. Template files are new files in the knowledge-base folder, never changes to an existing note. It never touches an existing note: notes change only in Migrate, once a way back exists. It never writes into the existing folder when the human chose a new one.
+This skill writes the draft, the template files of step 9, the plan and, in step 12, the files `charter init` writes, and no other file, all of them listed to the human in step 7 first. Template files are new files in the knowledge-base folder, never changes to an existing note. It never touches an existing note: notes change only in Migrate, once a way back exists. It never writes into the existing folder when the human chose a new one. When the human switches the contract guard on, its line goes into `charter.yaml` or the draft, and the rulebook is regenerated: files already on that list.
 
 It makes no commit and no push beyond the human's answer in step 7, and runs no other command that changes git history.

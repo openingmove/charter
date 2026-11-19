@@ -139,7 +139,7 @@ def _names(contract: Contract, note: Note) -> _Names | None:
         alternatives.setdefault(r"\s+".join(map(re.escape, name.casefold().split())), name)
     note_id = frontmatter.get(_ID)
     if isinstance(note_id, (int, str)) and not isinstance(note_id, bool) and str(note_id).strip():
-        text = _nfc(str(note_id).strip())
+        text = _nfc(_id_text(contract, frontmatter, note_id))
         escaped = re.escape(text.casefold())
         kind = frontmatter.get(contract.discriminator)
         # A number alone is too common in prose to mean the note; written after its kind or `#` it does.
@@ -154,6 +154,13 @@ def _names(contract: Contract, note: Note) -> _Names | None:
     ordered = sorted(alternatives, key=len, reverse=True)
     groups = "|".join(f"({alternative})" for alternative in ordered)
     return _Names(re.compile(rf"(?<!\w)(?:{groups})(?!\w)"), tuple(alternatives[a] for a in ordered))
+
+
+def _id_text(contract: Contract, frontmatter: dict[str, Any], note_id: int | str) -> str:
+    """The id as the note's file name spells it: zero padded when its field has a `width`."""
+    shape = contract.shape_of(frontmatter)
+    field = shape.fields.get(_ID) if shape is not None else None
+    return (field.text(note_id) if field is not None else str(note_id)).strip()
 
 
 def _nfc(text: str) -> str:

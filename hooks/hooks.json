@@ -1,0 +1,39 @@
+{
+  "description": "The contract guard: denies a write to a charter.yaml that opts in with agents: {guard: true}, unless the human typed /charter:establish, /charter:evolve or /charter:migrate in the session. Starts no process for any other prompt or tool call.",
+  "hooks": {
+    "UserPromptExpansion": [
+      {
+        "matcher": "^(charter:establish|charter:evolve|charter:migrate)$",
+        "hooks": [
+          {"type": "command", "command": "charter-hook", "args": ["skill-started"], "timeout": 30}
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {"type": "command", "command": "charter-hook", "args": ["pre-tool-use"], "if": "Edit(**/charter.yaml)", "timeout": 30}
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {"type": "command", "command": "charter-hook", "args": ["pre-tool-use"], "if": "Write(**/charter.yaml)", "timeout": 30}
+        ]
+      },
+      {
+        "matcher": "MultiEdit",
+        "hooks": [
+          {"type": "command", "command": "charter-hook", "args": ["pre-tool-use"], "if": "MultiEdit(**/charter.yaml)", "timeout": 30}
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {"type": "command", "command": "charter-hook", "args": ["pre-tool-use"], "if": "Bash(*charter.yaml*)", "timeout": 30}
+        ]
+      }
+    ]
+  }
+}

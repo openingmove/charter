@@ -20,7 +20,7 @@ from charter.checks.structure import StructureCheck
 from charter.checks.tags import TagsCheck
 from charter.checks.updated_date import UpdatedDateCheck
 from charter.contract import Contract, OptionalCheck, PluginSettings, load_contract, load_plugin_settings
-from charter.diagnostics import Diagnostic
+from charter.diagnostics import PLUGIN_SKIPPED_PATH, Diagnostic
 from charter.git import Change
 from charter.history import History
 from charter.index import Note
@@ -52,14 +52,20 @@ BUILTIN_CHECKS: tuple[Check, ...] = (
     _PROTECTED_REGION,
 )
 CHECK_CODES = {check.id: check.codes for check in BUILTIN_CHECKS}
-CORE_CODES = index.CODES | overrides.CODES
+CORE_CODES = index.CODES | overrides.CODES | {PLUGIN_SKIPPED_PATH}
 
 
-def contract_at(config: Path, tree: Tree | None = None) -> Contract:
+def contract_at(config: Path, tree: Tree | None = None, *, write_plugins: bool = True) -> Contract:
     """The contract `config` names, read from `tree` (by default the working copy), validated against the checks
-    there are. Raises ContractError."""
+    there are. Without `write_plugins`, its plugins are judged but not written to disk, so they cannot be run.
+    Raises ContractError."""
     return load_contract(
-        config, check_codes=CHECK_CODES, core_codes=CORE_CODES, optional_checks=OPTIONAL_CHECKS, tree=tree
+        config,
+        check_codes=CHECK_CODES,
+        core_codes=CORE_CODES,
+        optional_checks=OPTIONAL_CHECKS,
+        tree=tree,
+        write_plugins=write_plugins,
     )
 
 

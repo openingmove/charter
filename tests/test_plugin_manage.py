@@ -931,15 +931,19 @@ EDITED = "charter: 1\nroot: notes\nkinds:\n  entry: {}\n# edited by hand meanwhi
 
 @pytest.fixture
 def interrupted(monkeypatch):
-    """Makes replacing `name` fail, after `edit` ran on the knowledge base (an editor saving a file); with
-    `landed`, the replacement itself happens first and the failure is reported after it."""
+    """Makes the command's own replacement of `name` fail, after `edit` ran on the knowledge base (an editor
+    saving a file); with `landed`, the replacement itself happens first and the failure is reported after it.
+    Only that first replacement fails, so a rollback that wrongly writes the file back would land."""
 
     def make(name, edit, landed=False):
         replace = os.replace
+        failed = False
 
         def fake_replace(source, destination):
-            if os.path.basename(destination) != name:
+            nonlocal failed
+            if failed or os.path.basename(destination) != name:
                 return replace(source, destination)
+            failed = True
             if landed:
                 replace(source, destination)
             edit()
@@ -973,20 +977,17 @@ def test_rollback_leaves_a_file_edited_meanwhile_and_names_it(charter, installed
     assert (base / INSTALLED / "check.py").exists()
     if name == "charter.yaml":
         assert (base / "charter.lock").read_bytes() == lock
+        assert "check that it says what you want" in result.stdout
+    else:
+        assert "check `charter.lock` by hand or restore it from version control" in result.stdout
+        assert "installed with `--from` that the lock still lists, `charter plugin update <id>`" in result.stdout
+        assert "plugin update ID" not in result.stdout
     assert len(_kept_staging(base)) == 1
 
 
-def test_rollback_leaves_the_contract_edited_before_its_write_when_the_lock_failed(charter, installed, monkeypatch):
+def test_rollback_leaves_the_contract_edited_before_its_write_when_the_lock_failed(charter, installed, interrupted):
     base, _ = installed()
-    replace = os.replace
-
-    def fake_replace(source, destination):
-        if os.path.basename(destination) == "charter.lock":
-            (base / "charter.yaml").write_bytes(EDITED.encode())
-            raise PermissionError(13, "Permission denied")
-        return replace(source, destination)
-
-    monkeypatch.setattr(os, "replace", fake_replace)
+    interrupted("charter.lock", lambda: (base / "charter.yaml").write_bytes(EDITED.encode()))
 
     result = charter("plugin", "remove", "todo-free", cwd=base)
 

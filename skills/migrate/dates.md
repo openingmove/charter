@@ -1,6 +1,6 @@
 # Dates for a structure cutoff
 
-A kind with a `structure_cutoff` treats a note dated before it as a legacy note, exempt from the template's headings; the README's "Structure cutoff" subsection is the full rule. A note with no date is judged, so this file gives each undated note of such a kind a date that keeps it legacy. The cutoff itself stays exactly as the draft has it.
+A kind with a `structure_cutoff` treats a note dated before it as a legacy note, exempt from the template's headings; the "Structure cutoff" section of the charter manual's "Contract syntax" page (`docs/guide/Contract-syntax.md`) is the full rule. A note with no date is judged, so this file gives each undated note of such a kind a date that keeps it legacy. The cutoff itself stays exactly as the draft has it.
 
 ## Which notes need a date
 

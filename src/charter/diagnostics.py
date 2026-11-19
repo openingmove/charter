@@ -31,6 +31,8 @@ SEVERITY_NAMES: dict[str, Severity | None] = {
 
 PLUGIN_FAILED = "plugin/failed"
 PLUGIN_MODIFIED = "plugin/modified"
+# A path left out of a plugin's request because its name is not valid UTF-8.
+PLUGIN_SKIPPED_PATH = "plugin/skipped-path"
 FILES_LEFTOVER = "files/leftover"
 # The namespaces of the codes charter reports itself; no check may take one as its id.
 CORE_NAMESPACES = frozenset({"contract", "docs", "files", "index", "init", "new", "plugin", "snapshot", "usage"})

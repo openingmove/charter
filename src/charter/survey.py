@@ -3,7 +3,7 @@
 It runs before any contract exists, so it loads none and never searches for one. `survey(folder)` returns plain
 data that serialises to the stable `charter-survey/1` JSON, and nothing in it depends on the machine (POSIX paths
 relative to the folder, sorted keys and lists, no timestamps), so goldens match on every OS. The rules it applies
-are documented in the README.
+are documented in the user manual, `docs/guide/Commands.md`, section "Surveying a folder".
 """
 
 import datetime

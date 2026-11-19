@@ -16,7 +16,7 @@ Run every `charter` command from the contract's folder. Charter prints paths rel
 
 Run `charter --version`. It prints `charter X.Y.Z`. This skill needs 0.1.0 or newer.
 
-If the command is missing or the version is older, stop and tell the human how to fix it, then start Evolve again. Missing: the README's "Install" section has the exact command, which is `uv tool install` with this repository's git URL or path. Too old: `uv tool upgrade charter`. Install nothing yourself.
+If the command is missing or the version is older, stop and tell the human how to fix it, then start Evolve again. Missing: the "Install" page of the charter manual (`docs/guide/Install.md` in the charter repository) has the exact command, which is `uv tool install` with this repository's git URL or path. Too old: `uv tool upgrade charter`. Install nothing yourself.
 
 Done when `charter --version` reports 0.1.0 or newer.
 

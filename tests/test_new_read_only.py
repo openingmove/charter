@@ -140,3 +140,37 @@ def test_the_refusal_comes_with_the_note_s_other_problems(charter, kb):
     assert result.exit_code == 1
     assert CODE in result.stdout
     assert "new/exists" in result.stdout
+
+
+def test_the_agent_format_refusal_is_one_line_with_the_exact_wording(charter, kb):
+    # Pinned here because `validate` and `new` share the builder, so comparing the two alone would miss a change.
+    result = _new(charter, kb, "entry", "Ledger")
+
+    assert result.stdout == (
+        f"docs/Archive/Ledger.md: error {CODE}: This file is read-only under path policy `Archive/**`, "
+        "but it was added. (hint: Remove the file; nothing may be added under a read-only path. "
+        "If a human decided on this edit, they can allow it with the commit-message trailer "
+        f"`Charter-Allow: {CODE} docs/Archive/Ledger.md — <reason>`.)\n"
+    )
+
+
+def test_an_unplaceable_note_under_a_read_only_folder_is_refused_as_unplaceable_only(charter, make_kb):
+    # Schema off, so nothing else explains why `{number}` cannot be rendered from a mistyped value.
+    contract = CONTRACT.replace("kinds:\n", "checks:\n  schema: {enabled: false}\nkinds:\n", 1) + (
+        "  numbered:\n"
+        '    path: "Archive/{number}.md"\n'
+        "    fields:\n"
+        "      kind: {type: string, required: true}\n"
+        "      number: {type: int, required: true}\n"
+    )
+    # Old.md only makes the `docs` root exist; without it the contract is invalid.
+    kb = make_kb({"charter.yaml": contract, "docs/Plain/Old.md": "---\nkind: plain\ntitle: Old\n---\n"})
+    before = _tree(kb)
+
+    result = _new(charter, kb, "numbered", "--set", "number=four")
+
+    assert result.exit_code == 1
+    assert "new/unplaceable" in result.stdout
+    # No path was rendered, so there is no file to judge against the read-only policy.
+    assert CODE not in result.stdout
+    assert _tree(kb) == before
