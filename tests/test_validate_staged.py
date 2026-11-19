@@ -1,7 +1,7 @@
 import shutil
 
 import pytest
-from conftest import AGENTS_INCLUDE_OFF, FIXTURES, commit_files, run_git, write_files
+from conftest import AGENTS_INCLUDE_OFF, FIXTURES, commit_files, delete_git_object, run_git, write_files
 from hostile_names import git_tree_with_paths
 
 ENTRY = """\
@@ -393,7 +393,7 @@ def _stage_unreadable_plugin_file(kb):
     """Stages an edit to the plugin's script, then deletes the blob git would read it from."""
     _stage(kb, {"tools/todo-free/check.py": "import sys\n# edited\n", "notes/a.md": PLAN + "\nMore.\n"})
     blob = run_git(kb, "rev-parse", ":tools/todo-free/check.py")
-    (kb / ".git" / "objects" / blob[:2] / blob[2:]).unlink()
+    delete_git_object(kb, blob)
 
 
 def _assert_git_failed_without_traceback(result):

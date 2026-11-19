@@ -1,6 +1,6 @@
 import pytest
 from charter import git as charter_git
-from conftest import FIXTURES, commit_files, run_git
+from conftest import FIXTURES, commit_files, delete_git_object, run_git
 
 CONTRACT = """\
 charter: 1
@@ -480,7 +480,7 @@ def test_a_commit_with_an_invalid_plugin_manifest_is_a_contract_error_naming_it(
 def test_a_plugin_manifest_git_cannot_read_in_a_commit_is_a_git_failure(charter, make_kb):
     kb, base = _with_vendored_plugin(charter, make_kb)
     blob = run_git(kb, "rev-parse", f"HEAD:{VENDORED_MANIFEST}").strip()
-    (kb / ".git" / "objects" / blob[:2] / blob[2:]).unlink()
+    delete_git_object(kb, blob)
 
     result = _range(charter, kb, f"{base}..HEAD")
 
