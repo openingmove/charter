@@ -40,7 +40,7 @@ The plugin reads one JSON request on stdin and writes one JSON response on stdou
 ```json
 {
   "protocol": "charter-plugin/1",
-  "charter_version": "0.2.0",
+  "charter_version": "0.2.1",
   "plugin": {"id": "word-limit", "version": "0.1.0"},
   "params": {"max_words": 800},
   "mode": "file",

@@ -4,6 +4,8 @@ Each release of charter has a section here, newest first. The section for a vers
 
 ## Unreleased
 
+## 0.2.1 - 2026-11-19
+
 ### Upgrade notes
 
 - Upgrade the command line tool together with the plugin: `uv tool upgrade charter`. The plugin's new hooks run a `charter-hook` command. With an older command line tool, the contract guard is off without warning: Claude Code reports a hook error on each guarded call and goes on.
