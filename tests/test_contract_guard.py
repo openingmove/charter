@@ -355,9 +355,43 @@ def test_a_session_id_that_is_not_valid_text_never_blocks(kb, capsys, monkeypatc
     crashed(run_hook(capsys, monkeypatch, ["skill-started"], data, kb))
 
 
-@pytest.mark.skipif(os.name == "nt", reason="Windows spells any `~user` as a folder beside the user's own home")
-def test_a_home_folder_of_an_unknown_user_never_blocks(hook, kb):
-    crashed(bash(hook, kb.parent, "cp x ~nosuchuser-charter-test/charter.yaml"))
+UNKNOWN_HOME = pytest.mark.skipif(
+    os.name == "nt", reason="Windows spells any `~user` as a folder beside the user's own home"
+)
+
+
+@UNKNOWN_HOME
+def test_a_contract_write_charter_cannot_resolve_is_denied(hook, kb):
+    reason = denied(bash(hook, kb.parent, "cp x ~nosuchuser-charter-test/charter.yaml"))
+
+    assert "could not check" in reason
+
+
+@UNKNOWN_HOME
+def test_a_folder_charter_cannot_resolve_before_a_contract_write_denies_the_call(hook, kb):
+    reason = denied(bash(hook, kb.parent, f"cd ~nosuchuser-charter-test; rm {kb / 'charter.yaml'}"))
+
+    assert "could not check" in reason
+    assert "/charter:evolve" in reason
+
+
+@UNKNOWN_HOME
+def test_an_error_after_a_guarded_write_keeps_that_write_denied(hook, kb):
+    reason = denied(bash(hook, kb.parent, "rm kb/charter.yaml; cd ~nosuchuser-charter-test"))
+
+    assert str(kb / "charter.yaml") in reason
+
+
+@UNKNOWN_HOME
+def test_a_call_charter_cannot_check_is_allowed_after_the_human_typed_evolve(hook, kb):
+    started(hook, kb)
+
+    assert allowed(bash(hook, kb.parent, "cd ~nosuchuser-charter-test; rm charter.yaml"))
+
+
+@UNKNOWN_HOME
+def test_an_error_in_a_command_that_names_no_contract_never_blocks(hook, kb):
+    crashed(bash(hook, kb.parent, "cd ~nosuchuser-charter-test; ls"))
 
 
 def test_a_deeply_nested_event_never_blocks(kb, capsys, monkeypatch):
@@ -366,10 +400,22 @@ def test_a_deeply_nested_event_never_blocks(kb, capsys, monkeypatch):
     crashed(run_hook(capsys, monkeypatch, ["pre-tool-use"], data, kb))
 
 
-def test_a_deeply_nested_contract_never_blocks(hook, kb):
-    (kb / "charter.yaml").write_text("agents: " + "[" * 100_000 + "]" * 100_000 + "\n", encoding="utf-8")
+def deeply_nested(path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("agents: " + "[" * 100_000 + "]" * 100_000 + "\n", encoding="utf-8")
 
-    crashed(edit(hook, kb))
+
+def test_a_contract_whose_guard_cannot_be_read_counts_as_guarded(hook, kb):
+    deeply_nested(kb / "charter.yaml")
+
+    denied(edit(hook, kb))
+
+
+def test_a_contract_whose_guard_cannot_be_read_does_not_hide_a_guarded_one(hook, kb):
+    deeply_nested(kb.parent / "evil" / "charter.yaml")
+
+    denied(bash(hook, kb.parent, "rm evil/charter.yaml kb/charter.yaml"))
+    denied(bash(hook, kb.parent, "rm kb/charter.yaml evil/charter.yaml"))
 
 
 def test_a_guard_without_an_agents_file_is_on_for_describe_and_the_hook_alike(hook, kb, charter):

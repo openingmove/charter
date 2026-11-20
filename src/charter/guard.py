@@ -11,6 +11,11 @@ a tool call that names a `charter.yaml`. Both exit 0 for every event they can an
 for a file system error: none of those blocks a call. Any other crash exits 1, which Claude Code reports as a hook
 error and goes on.
 
+`pre-tool-use` fails closed for a contract. A contract whose guard it cannot read, such as YAML nested too deep to
+parse, counts as guarded. An error while it splits or resolves a call whose input names `charter.yaml` denies the
+call, with a reason that says charter could not check it, and keeps every guarded contract found before the error.
+A session with a marker may still make both calls.
+
 It is a program of its own, not a `charter` subcommand, because Claude Code treats exit 2 as a block. An older
 `charter` would answer an unknown subcommand with argparse's exit 2 and so refuse every charter skill and contract
 write; a missing `charter-hook` is only a hook error. For the same reason this command never exits 2 itself, also
@@ -125,8 +130,18 @@ def pre_tool_use(event: dict[str, Any]) -> dict[str, Any] | None:
     cwd = event.get("cwd")
     if not isinstance(tool_input, dict) or not isinstance(cwd, str):
         return None
-    guarded = [path for path in _written(event.get("tool_name"), tool_input, Path(cwd)) if _guard_on(path)]
-    if not guarded:
+    tool = event.get("tool_name")
+    guarded: list[Path] = []
+    failure: Exception | None = None
+    try:
+        # Each path is judged as it comes, so an error on a later one keeps the guarded paths found before it.
+        guarded.extend(path for path in _written(tool, tool_input, Path(cwd)) if _guard_on(path))
+    except Exception as error:
+        if not _names_contract(tool, tool_input):
+            raise
+        # The call names a contract charter could not check: fail closed.
+        failure = error
+    if not guarded and failure is None:
         return None
     if isinstance(session_id, str) and session_id and _marker(session_id).is_file():
         return None
@@ -134,18 +149,35 @@ def pre_tool_use(event: dict[str, Any]) -> dict[str, Any] | None:
         "hookSpecificOutput": {
             "hookEventName": "PreToolUse",
             "permissionDecision": "deny",
-            "permissionDecisionReason": _reason(guarded[0]),
+            "permissionDecisionReason": _reason(guarded[0]) if guarded else _unchecked_reason(failure),
         }
     }
+
+
+_ASK_FOR_EVOLVE = (
+    "An agent cannot start Evolve. Stop and ask the human to type `/charter:evolve` if they want this change; once "
+    "they have, this session may write the contract."
+)
 
 
 def _reason(contract: Path) -> str:
     return (
         f"`{contract}` is a charter contract with its guard on: a contract changes only through Evolve, never by a "
-        "direct edit, and a yes in this conversation does not change that. An agent cannot start Evolve. Stop and "
-        "ask the human to type `/charter:evolve` if they want this change; once they have, this session may write "
-        "the contract."
+        f"direct edit, and a yes in this conversation does not change that. {_ASK_FOR_EVOLVE}"
     )
+
+
+def _unchecked_reason(error: Exception | None) -> str:
+    return (
+        f"This call names `{CONTRACT_FILENAME}`, and charter could not check whether it writes a contract with its "
+        f"guard on ({type(error).__name__}: {error}), so the contract guard refuses it. {_ASK_FOR_EVOLVE}"
+    )
+
+
+def _names_contract(tool: object, tool_input: dict[str, Any]) -> bool:
+    """Whether the text of a tool call's input names the contract file, wherever it appears."""
+    text = tool_input.get("file_path") if tool in FILE_TOOLS else tool_input.get("command") if tool == "Bash" else None
+    return isinstance(text, str) and CONTRACT_FILENAME in text
 
 
 def _written(tool: object, tool_input: dict[str, Any], cwd: Path) -> Iterator[Path]:
@@ -167,7 +199,9 @@ def _is_contract_name(path: str) -> bool:
 def _guard_on(path: Path) -> bool:
     """Whether the contract at `path` opts in with `agents: {guard: true}`.
 
-    A file that is missing, unreadable or not a contract mapping has no opt-in the guard can see, so it is off.
+    A file that is missing, unreadable or not a contract mapping has no opt-in the guard can see, so it is off. A file
+    that charter fails to parse in any other way, such as YAML nested too deep to read, counts as on: the guard cannot
+    tell, so it fails closed.
     """
     import yaml
 
@@ -175,6 +209,8 @@ def _guard_on(path: Path) -> bool:
         data = yaml.safe_load(path.read_bytes())
     except (OSError, yaml.YAMLError, ValueError):
         return False
+    except Exception:
+        return True
     agents = data.get("agents") if isinstance(data, dict) else None
     return isinstance(agents, dict) and agents.get("guard") is True
 
