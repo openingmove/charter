@@ -10,7 +10,7 @@ It needs the charter plugin enabled in Claude Code (see [The skills](Install.md#
 
 How it works:
 
-- When the human types one of the three commands, a `UserPromptExpansion` hook runs `charter-hook skill-started`, which records a marker for that session in a per-user state folder (`$XDG_STATE_HOME/charter` or `~/.local/state/charter` on Linux, `~/Library/Application Support/charter` on macOS, `%LOCALAPPDATA%\charter` on Windows), never in the repository.
+- When the human types one of the three commands, a `UserPromptExpansion` hook runs `charter-hook skill-started`, which records a marker for that session in a per-user state folder (`$XDG_STATE_HOME/charter` or `~/.local/state/charter` on Linux, `~/Library/Application Support/charter` on macOS, `%LOCALAPPDATA%\charter` on Windows), never in the repository. Each marker is the file `sessions/<sha256 of the session id>.json` in that folder.
 - Before an `Edit`, `Write`, `MultiEdit` or `Bash` call whose input names a `charter.yaml`, a `PreToolUse` hook runs `charter-hook pre-tool-use`. It denies the call when the contract it writes has `guard: true` and the session has no marker, with a reason that tells the human to type `/charter:evolve`. Otherwise it answers nothing, and Claude Code's own permissions decide as usual.
 - Claude Code filters the calls with each hook's `if` rule and matcher, so no process starts for a prompt or a tool call that does not name `charter.yaml`.
 
