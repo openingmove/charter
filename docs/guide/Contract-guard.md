@@ -10,11 +10,13 @@ It needs the charter plugin enabled in Claude Code (see [The skills](Install.md#
 
 How it works:
 
-- When the human types one of the three commands, a `UserPromptExpansion` hook runs `charter-hook skill-started`, which records a marker for that session in a per-user state folder (`$XDG_STATE_HOME/charter` or `~/.local/state/charter` on Linux, `~/Library/Application Support/charter` on macOS, `%LOCALAPPDATA%\charter` on Windows), never in the repository.
+- When the human types one of the three commands, a `UserPromptExpansion` hook runs `charter-hook skill-started`, which records a marker for that session in a per-user state folder (`$XDG_STATE_HOME/charter` or `~/.local/state/charter` on Linux, `~/Library/Application Support/charter` on macOS, `%LOCALAPPDATA%\charter` on Windows), never in the repository. Each marker is the file `sessions/<sha256 of the session id>.json` in that folder.
 - Before an `Edit`, `Write`, `MultiEdit` or `Bash` call whose input names a `charter.yaml`, a `PreToolUse` hook runs `charter-hook pre-tool-use`. It denies the call when the contract it writes has `guard: true` and the session has no marker, with a reason that tells the human to type `/charter:evolve`. Otherwise it answers nothing, and Claude Code's own permissions decide as usual.
 - Claude Code filters the calls with each hook's `if` rule and matcher, so no process starts for a prompt or a tool call that does not name `charter.yaml`.
 
 The guard judges the contract on disk before the call, so the edit that removes `guard: true` is itself refused. A contract that is missing or does not parse as YAML has no opt-in the guard can see, and the guard leaves it alone.
+
+When the guard cannot check a call, it refuses it. A `charter.yaml` whose guard it cannot read, such as YAML nested too deep to parse, counts as guarded. A call that names `charter.yaml` but that charter cannot split or resolve, such as `cd ~nosuchuser; rm charter.yaml`, is denied with a reason that says charter could not check the command. After the human types `/charter:evolve`, the session may make these calls too. A call that does not name `charter.yaml` is never refused this way.
 
 Limits:
 
