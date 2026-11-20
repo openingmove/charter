@@ -116,7 +116,7 @@ def _command_writes(words: list[str], cwd: Path, wanted: Callable[[str], bool]) 
             # A move also removes its sources.
             yield from sources
         yield target
-        if _is_dir(resolve(cwd, target)):
+        if _is_dir(cwd, target):
             yield from (f"{target.rstrip('/')}/{Path(source).name}" for source in sources)
     elif name == "dd":
         yield from (arg[3:] for arg in args if arg.startswith("of="))
@@ -133,11 +133,12 @@ def _command_writes(words: list[str], cwd: Path, wanted: Callable[[str], bool]) 
         yield from (str(path) for path in written(code, cwd, wanted))
 
 
-def _is_dir(path: Path) -> bool:
-    # A target the system cannot check, such as an overlong name, is no folder; the sources already yielded stand.
+def _is_dir(cwd: Path, target: str) -> bool:
+    # A target the system cannot resolve or check, such as an overlong name or the home folder of an unknown user
+    # (`~nosuchuser`), is no folder; the sources already yielded stand.
     try:
-        return path.is_dir()
-    except (OSError, ValueError):
+        return resolve(cwd, target).is_dir()
+    except (OSError, ValueError, RuntimeError):
         return False
 
 

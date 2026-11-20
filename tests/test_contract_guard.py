@@ -334,6 +334,12 @@ def test_a_move_of_the_contract_is_denied_when_the_target_cannot_be_checked(hook
     denied(bash(hook, kb.parent, "mv kb/charter.yaml elsewhere"))
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Windows spells any `~user` as a folder beside the user's own home")
+def test_a_move_of_the_contract_to_the_home_folder_of_an_unknown_user_is_denied(hook, kb):
+    # Resolving `~nosuchuser` raises a RuntimeError; the guarded source must still count, since the shell moves it.
+    denied(bash(hook, kb.parent, "mv kb/charter.yaml ~nosuchuser-charter-test"))
+
+
 def crashed(result):
     # A crash is a hook error to Claude Code, never exit 2, which would block the call.
     assert result.exit_code == 1
