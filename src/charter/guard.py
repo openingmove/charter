@@ -62,16 +62,20 @@ def main(argv: list[str] | None = None) -> int:
         known = ", ".join(EVENTS)
         print(f"charter-hook: no hook event {' '.join(args)!r}; this version answers {known}", file=sys.stderr)
         return 0
-    event = read_event(sys.stdin)
-    if event is None:
-        return 0
     try:
+        event = read_event(sys.stdin)
+        if event is None:
+            return 0
         if args[0] == "skill-started":
             skill_started(event)
         elif decision := pre_tool_use(event):
             print(json.dumps(decision))
     except OSError as error:
         print(f"charter-hook {args[0]}: {error}", file=sys.stderr)
+    except Exception as error:
+        # Any other crash is a hook error: exit 1, never 2, which would block the call.
+        print(f"charter-hook {args[0]}: {type(error).__name__}: {error}", file=sys.stderr)
+        return 1
     return 0
 
 

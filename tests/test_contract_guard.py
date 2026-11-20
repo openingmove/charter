@@ -332,3 +332,35 @@ def test_a_move_of_the_contract_is_denied_when_the_target_cannot_be_checked(hook
     monkeypatch.setattr(shellwrites.Path, "is_dir", unreadable)
 
     denied(bash(hook, kb.parent, "mv kb/charter.yaml elsewhere"))
+
+
+def crashed(result):
+    # A crash is a hook error to Claude Code, never exit 2, which would block the call.
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert "charter-hook" in result.stderr
+    return result.stderr
+
+
+def test_a_session_id_that_is_not_valid_text_never_blocks(kb, capsys, monkeypatch, tmp_path):
+    monkeypatch.setenv("CHARTER_STATE_DIR", str(tmp_path / "state"))
+    data = b'{"session_id": "\\ud800", "command_name": "charter:evolve", "cwd": "."}'
+
+    crashed(run_hook(capsys, monkeypatch, ["skill-started"], data, kb))
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Windows spells any `~user` as a folder beside the user's own home")
+def test_a_home_folder_of_an_unknown_user_never_blocks(hook, kb):
+    crashed(bash(hook, kb.parent, "cp x ~nosuchuser-charter-test/charter.yaml"))
+
+
+def test_a_deeply_nested_event_never_blocks(kb, capsys, monkeypatch):
+    data = b"[" * 100_000 + b"]" * 100_000
+
+    crashed(run_hook(capsys, monkeypatch, ["pre-tool-use"], data, kb))
+
+
+def test_a_deeply_nested_contract_never_blocks(hook, kb):
+    (kb / "charter.yaml").write_text("agents: " + "[" * 100_000 + "]" * 100_000 + "\n", encoding="utf-8")
+
+    crashed(edit(hook, kb))
