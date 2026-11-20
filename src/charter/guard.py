@@ -7,7 +7,7 @@ Agents cannot start those skills, so only a command the human typed produces a m
 does not.
 
 The plugin's `hooks/hooks.json` filters the calls, so these commands start only for a typed charter skill and for
-a tool call that names a `charter.yaml`. Both exit 0 for every event they can answer, also an unreadable one, and
+a tool call that names a `charter.yaml`. Both exit 0 for every event they can answer, including an unreadable one, and
 for a file system error: none of those blocks a call. Any other crash exits 1, which Claude Code reports as a hook
 error and goes on.
 
