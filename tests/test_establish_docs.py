@@ -111,3 +111,10 @@ def test_the_section_map_names_no_target_of_a_kind_with_no_path():
     assert "Name no `TARGET` of a kind that has no path" in handoff
     assert "go back to step 10" in handoff
 
+
+def test_the_interview_table_moves_an_append_only_file_out_of_a_protected_folder():
+    rows = [line for line in (ESTABLISH / "interview.md").read_text("utf-8").splitlines() if line.startswith("| ")]
+
+    row = next(row for row in rows if "append" in row.split("|")[1])
+    assert "`edit: create-only` or `edit: read-only`" in row
+    assert "must move out of that folder" in row

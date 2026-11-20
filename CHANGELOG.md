@@ -8,6 +8,7 @@ Each release of charter has a section here, newest first. The section for a vers
 
 - When `charter-hook` crashes, it prints one line, `charter-hook EVENT: ERROR`, instead of a traceback, and exits `1`. Claude Code reports a hook error and goes on. It never exits `2`, which would block the call.
 - Establish checks, before it asks for approval, that every kind the migration plan will create notes for has a `path`. Migrate creates those notes with `charter new`, which cannot create a note of a kind with no path. Establish tells the human about each such kind.
+- Establish tells the human that a file which is only ever appended to cannot stay in a folder under `edit: create-only` or `edit: read-only`: the file must move out of that folder.
 
 ### Fixed
 
