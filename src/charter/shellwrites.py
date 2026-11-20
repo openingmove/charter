@@ -21,8 +21,6 @@ _WRAPPERS = {"sudo", "env", "command", "nohup", "time", "exec", "xargs", "doas"}
 _WRITE_ALL = {"tee", "rm", "unlink", "truncate", "touch", "shred"}
 # Commands that write the last file they name, or the file of a source's name inside it when it is a folder.
 _WRITE_LAST = {"cp", "mv", "install", "ln", "rsync"}
-# Commands of _WRITE_LAST that also remove their sources.
-_MOVES = {"mv"}
 # Interpreters whose inline code (`-c`, `-e`) is opaque: naming a file there counts as writing it. Python matches
 # with any version suffix (`python`, `python3`, `python3.13`).
 _PYTHON = re.compile(r"python(\d+(\.\d+)?)?")
@@ -114,7 +112,8 @@ def _command_writes(words: list[str], cwd: Path, wanted: Callable[[str], bool]) 
         yield from operands
     elif name in _WRITE_LAST and operands:
         *sources, target = operands
-        if name in _MOVES:
+        if name == "mv":
+            # A move also removes its sources.
             yield from sources
         yield target
         if _is_dir(resolve(cwd, target)):
