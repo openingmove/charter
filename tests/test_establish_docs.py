@@ -99,6 +99,8 @@ def test_approval_checks_every_kind_the_plan_creates_notes_for_has_a_path_before
     approval = _step(10)
 
     assert PATHLESS in approval
+    assert "When step 11 will hand off to Migrate" in approval
+    assert "predict the plan's `Section map` now: it is written only in step 13" in approval
     assert "every kind that the plan's `Section map` will create notes for" in approval
     assert "Migrate creates each of those notes with `charter new`" in approval
     assert "before you ask for the yes" in approval
