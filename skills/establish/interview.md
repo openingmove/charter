@@ -23,6 +23,6 @@ Answers become the draft this way:
 | stages | a field with a fixed list of values, and fields required only at some stages |
 | never changes, written once | `edit: create-only` (new notes may be added) or `edit: read-only` (no files at all) for its folder |
 | never changes, but later amendments are added below a marked line | the `protected-region` check on its kind |
-| a file that is only ever appended to, inside a folder that never changes | no exception for one file: a file under an `edit: create-only` or `edit: read-only` glob cannot be appended to, so tell the human it must move out of that folder |
+| a file that is only ever appended to, inside a folder that never changes | no `edit:` value lifts the policy for one file: a file under an `edit: create-only` or `edit: read-only` glob cannot be appended to. An `ignore: true` rule for the file would lift it, but the file then stops being a note. Tell the human the file must move out of that folder |
 | leave this folder alone | `untyped: allow` with `edit: read-only` for it |
 | a recurring outline | a template |
