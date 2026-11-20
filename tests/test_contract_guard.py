@@ -36,7 +36,7 @@ def run_hook(capsys, monkeypatch, argv, data, cwd):
 @pytest.fixture
 def hook(capsys, monkeypatch, tmp_path):
     """Feed one hook event to `charter-hook EVENT` on stdin, with markers kept under a test state folder."""
-    monkeypatch.setenv("CHARTER_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv(guard.STATE_VARIABLE, str(tmp_path / "state"))
 
     def run(event, payload, cwd):
         return run_hook(capsys, monkeypatch, [event], json.dumps(payload).encode("utf-8"), cwd)
@@ -349,7 +349,7 @@ def crashed(result):
 
 
 def test_a_session_id_that_is_not_valid_text_never_blocks(kb, capsys, monkeypatch, tmp_path):
-    monkeypatch.setenv("CHARTER_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv(guard.STATE_VARIABLE, str(tmp_path / "state"))
     data = b'{"session_id": "\\ud800", "command_name": "charter:evolve", "cwd": "."}'
 
     crashed(run_hook(capsys, monkeypatch, ["skill-started"], data, kb))
