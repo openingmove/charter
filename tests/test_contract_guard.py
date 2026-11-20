@@ -364,3 +364,11 @@ def test_a_deeply_nested_contract_never_blocks(hook, kb):
     (kb / "charter.yaml").write_text("agents: " + "[" * 100_000 + "]" * 100_000 + "\n", encoding="utf-8")
 
     crashed(edit(hook, kb))
+
+
+def test_a_guard_without_an_agents_file_is_on_for_describe_and_the_hook_alike(hook, kb, charter):
+    # `describe` reads the guard through the contract's agent layer, the hook reads `agents.guard` directly.
+    (kb / "charter.yaml").write_text("charter: 1\nagents: {guard: true}\nkinds: {}\n", encoding="utf-8")
+
+    assert charter("describe", "--format", "json", cwd=kb).json()["guard"] is True
+    denied(edit(hook, kb))
