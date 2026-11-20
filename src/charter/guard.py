@@ -35,8 +35,11 @@ GUARDED_SKILLS = ("charter:establish", "charter:evolve", "charter:migrate")
 STATE_VARIABLE = "CHARTER_STATE_DIR"
 # The file tools whose `file_path` is the one file they write.
 FILE_TOOLS = ("Edit", "Write", "MultiEdit")
-# The hook events `charter-hook` answers, as `hooks/hooks.json` names them.
-EVENTS = ("skill-started", "pre-tool-use")
+# The hook events `charter-hook` answers, as `hooks/hooks.json` names them, with what each does for the help.
+EVENTS = {
+    "skill-started": "record that the human typed {skills} in this session",
+    "pre-tool-use": "deny a write to a guarded charter.yaml in a session that started none of them",
+}
 
 
 def typed_skills() -> str:
@@ -46,11 +49,12 @@ def typed_skills() -> str:
 
 
 def _usage() -> str:
+    width = max(map(len, EVENTS))
+    events = "".join(f"  {event:<{width}}  {text.format(skills=typed_skills())}\n" for event, text in EVENTS.items())
     return (
         "usage: charter-hook EVENT\n\n"
         "The contract guard's Claude Code hooks: read a hook event on stdin and answer it.\n\n"
-        f"  skill-started  record that the human typed {typed_skills()} in this session\n"
-        "  pre-tool-use   deny a write to a guarded charter.yaml in a session that started none of them\n"
+        f"{events}"
     )
 
 
