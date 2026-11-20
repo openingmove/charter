@@ -11,7 +11,6 @@ from charter.body import heading, parse_body
 from charter.contract import AGENTS_INCLUDE, CONTRACT_FILENAME, Contract, Kind, Shape, StructureCutoff, Variant
 from charter.diagnostics import code_list, code_span, yaml_text
 from charter.fields import NEXT, TODAY, Field, describe_all, zero_padded
-from charter.guard import typed_skills
 from charter.pathpolicy import POLICY_KEYS
 from charter.plugin import Plugin
 from charter.prose import LIST_ITEM
@@ -358,6 +357,9 @@ def to_markdown(description: Description) -> str:
 def _guard_lines(guard: bool) -> Iterator[str]:
     if not guard:
         return
+    # Imported here: only a contract with the guard on needs the hook module and its shell reader.
+    from charter.guard import typed_skills
+
     yield "# Contract guard"
     yield ""
     yield (
