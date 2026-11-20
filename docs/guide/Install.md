@@ -69,3 +69,4 @@ Do not install the same skills by two routes for one agent, or you will get each
 ## Versions
 
 The skills and the command line tool release together from one version. `plugin.json`'s `version` must equal `version` in `pyproject.toml` and `__version__` in `src/charter/__init__.py`, which `charter --version` prints (`tests/test_plugin_packaging.py` fails otherwise). Bump all three in one commit and tag that commit. After updating the skills, run `uv tool upgrade charter` so the two match. The plugin's hooks run `charter-hook`, a second command the tool installs beside `charter`. A command line tool too old to have it does not stop you: Claude Code reports a hook error and goes on, and the [contract guard](Contract-guard.md) stays off until you upgrade.
+
