@@ -255,6 +255,19 @@ def test_timeout_holds_when_a_process_the_plugin_started_keeps_its_output_open(c
     assert time.monotonic() - started < 15
 
 
+# The leave-child tests need the plugin to write `child.pid` before its timeout, and `uv` start-up counts
+# against that timeout. A cold runner can take close to the fixture's 4000 ms just to start, so these tests
+# give the plugin more time.
+LEAVE_CHILD_TIMEOUT_MS = 10000
+
+
+def _leave_child_kb(kb, behaviour):
+    """A knowledge base whose `misbehave` plugin runs `behaviour` with LEAVE_CHILD_TIMEOUT_MS to finish."""
+    base = kb(MISBEHAVE.format(behaviour=behaviour), ["misbehave"])
+    rewrite_manifest(base / "tools" / "misbehave", timeout_ms=LEAVE_CHILD_TIMEOUT_MS)
+    return base
+
+
 def _left_child(base):
     """The pid of the process a `leave-child` plugin started, or None when it wrote none."""
     pid_file = base / "tools" / "misbehave" / "child.pid"
@@ -265,7 +278,7 @@ def _left_child(base):
     ("behaviour", "exit_code"), [("leave-child", 0), ("leave-child-and-hang", 3), ("leave-child-and-flood", 3)]
 )
 def test_a_process_the_plugin_left_running_ends_with_the_run(charter, kb, behaviour, exit_code):
-    base = kb(MISBEHAVE.format(behaviour=behaviour), ["misbehave"])
+    base = _leave_child_kb(kb, behaviour)
     pid = None
     try:
         result = charter("validate", "--format", "json", cwd=base)
@@ -303,14 +316,16 @@ def test_a_plugin_runs_unchanged_when_charter_cannot_use_a_job(charter, kb):
 
 @pytest.mark.usefixtures("job_refused")
 def test_timeout_still_ends_the_plugin_and_what_it_started_when_charter_cannot_use_a_job(charter, kb):
-    base = kb(MISBEHAVE.format(behaviour="leave-child-and-hang"), ["misbehave"])
+    base = _leave_child_kb(kb, "leave-child-and-hang")
     pid = None
     try:
         result = charter("validate", "--format", "json", cwd=base)
         pid = _left_child(base)
 
         assert (result.exit_code, result.stderr) == (3, "")
-        assert result.json()["diagnostics"][0]["message"].startswith("Plugin `misbehave` did not finish within 4000 ms.")
+        assert result.json()["diagnostics"][0]["message"].startswith(
+            f"Plugin `misbehave` did not finish within {LEAVE_CHILD_TIMEOUT_MS} ms."
+        )
         assert pid is not None
         assert gone_within(pid)
     finally:
