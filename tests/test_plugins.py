@@ -15,7 +15,7 @@ from plugin_support import (
     probe,
     rewrite_manifest,
 )
-from process_support import end, gone_within, windows_only
+from process_support import GONE_WITHIN_SECONDS, LEFTOVER_SECONDS, end, gone_within, windows_only
 
 
 @pytest.fixture
@@ -259,6 +259,10 @@ def test_timeout_holds_when_a_process_the_plugin_started_keeps_its_output_open(c
 # against that timeout. A cold runner can take close to the fixture's 4000 ms just to start, so these tests
 # give the plugin more time.
 LEAVE_CHILD_TIMEOUT_MS = 10000
+
+# The leftover child must outlive the last `gone_within` check by a clear margin; otherwise a test could pass
+# because the child ended by itself, not because charter ended it.
+assert LEAVE_CHILD_TIMEOUT_MS / 1000 + GONE_WITHIN_SECONDS <= LEFTOVER_SECONDS - 5
 
 
 def _leave_child_kb(kb, behaviour):
