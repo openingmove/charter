@@ -5,8 +5,36 @@ on:
     types: [opened, reopened, synchronize, ready_for_review]
 
 jobs:
-  test:
+  # Decide whether the pull request changes only documentation.
+  # docs_only is "true" only after a successful classification; any other
+  # value, including an empty one from a failed job, runs the full matrix.
+  classify:
     if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    outputs:
+      docs_only: ${{ steps.classify.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: classify
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git diff --name-only --no-renames "$BASE_SHA...$HEAD_SHA"
+          git diff --name-only --no-renames -z "$BASE_SHA...$HEAD_SHA" > "$RUNNER_TEMP/changed"
+          docs_only=$(python3 .github/scripts/docs_only.py < "$RUNNER_TEMP/changed")
+          echo "docs_only=$docs_only"
+          echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: classify
+    if: >-
+      !cancelled()
+      && github.event.pull_request.draft == false
+      && needs.classify.outputs.docs_only != 'true'
     name: test (${{ matrix.os }}, Python ${{ matrix.python }})
     runs-on: ${{ matrix.os }}
     strategy:
@@ -21,3 +49,28 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: uv sync --locked
       - run: uv run pytest
+
+  # The only required check. It passes when the matrix succeeded, or when
+  # a successful classification skipped it for a documentation change.
+  ci-ok:
+    needs: [classify, test]
+    if: always() && github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - shell: bash
+        env:
+          CLASSIFY_RESULT: ${{ needs.classify.result }}
+          DOCS_ONLY: ${{ needs.classify.outputs.docs_only }}
+          TEST_RESULT: ${{ needs.test.result }}
+        run: |
+          echo "classify=$CLASSIFY_RESULT docs_only=$DOCS_ONLY test=$TEST_RESULT"
+          if [ "$TEST_RESULT" = "success" ]; then
+            echo "Test matrix passed."
+            exit 0
+          fi
+          if [ "$TEST_RESULT" = "skipped" ] && [ "$CLASSIFY_RESULT" = "success" ] && [ "$DOCS_ONLY" = "true" ]; then
+            echo "Documentation-only change: test matrix skipped."
+            exit 0
+          fi
+          echo "::error::Test matrix did not pass (result: $TEST_RESULT)."
+          exit 1
