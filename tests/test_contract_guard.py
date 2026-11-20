@@ -4,6 +4,7 @@ started Establish, Evolve or Migrate in that session."""
 import io
 import json
 import os
+import pathlib
 import sys
 
 import pytest
@@ -329,7 +330,7 @@ def test_a_move_of_the_contract_is_denied_when_the_target_cannot_be_checked(hook
     def unreadable(path):
         raise PermissionError(13, "Permission denied", str(path))
 
-    monkeypatch.setattr(shellwrites.Path, "is_dir", unreadable)
+    monkeypatch.setattr(pathlib.Path, "is_dir", unreadable)
 
     denied(bash(hook, kb.parent, "mv kb/charter.yaml elsewhere"))
 
