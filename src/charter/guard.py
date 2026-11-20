@@ -2,12 +2,14 @@
 
 `skill-started` runs when the human types `/charter:establish`, `/charter:evolve` or `/charter:migrate`
 (`GUARDED_SKILLS`), and records a marker for that session. `pre-tool-use` runs before a tool call that may write a
-`charter.yaml`, and denies it when that contract opts in (`agents: {guard: true}`) and the session has no marker. Agents cannot start those skills, so
-only a command the human typed produces a marker; a "yes" in the conversation does not.
+`charter.yaml`, and denies it when that contract opts in (`agents: {guard: true}`) and the session has no marker.
+Agents cannot start those skills, so only a command the human typed produces a marker; a "yes" in the conversation
+does not.
 
 The plugin's `hooks/hooks.json` filters the calls, so these commands start only for a typed charter skill and for
-a tool call that names a `charter.yaml`. Both always exit 0: an unreadable event never blocks a call, and a crash
-exits 1, which Claude Code reports as a hook error and goes on.
+a tool call that names a `charter.yaml`. Both exit 0 for every event they can answer, also an unreadable one, and
+for a file system error: none of those blocks a call. Any other crash exits 1, which Claude Code reports as a hook
+error and goes on.
 
 It is a program of its own, not a `charter` subcommand, because Claude Code treats exit 2 as a block. An older
 `charter` would answer an unknown subcommand with argparse's exit 2 and so refuse every charter skill and contract
