@@ -117,7 +117,7 @@ def _command_writes(words: list[str], cwd: Path, wanted: Callable[[str], bool]) 
         if name in _MOVES:
             yield from sources
         yield target
-        if resolve(cwd, target).is_dir():
+        if _is_dir(resolve(cwd, target)):
             yield from (f"{target.rstrip('/')}/{Path(source).name}" for source in sources)
     elif name == "dd":
         yield from (arg[3:] for arg in args if arg.startswith("of="))
@@ -132,6 +132,14 @@ def _command_writes(words: list[str], cwd: Path, wanted: Callable[[str], bool]) 
     elif name in _SHELLS and "-c" in args:
         code = args[args.index("-c") + 1] if args.index("-c") + 1 < len(args) else ""
         yield from (str(path) for path in written(code, cwd, wanted))
+
+
+def _is_dir(path: Path) -> bool:
+    # A target the system cannot check, such as an overlong name, is no folder; the sources already yielded stand.
+    try:
+        return path.is_dir()
+    except (OSError, ValueError):
+        return False
 
 
 def _perl_i(arg: str) -> bool:

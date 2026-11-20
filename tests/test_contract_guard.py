@@ -318,3 +318,17 @@ def test_a_git_bash_path_to_a_guarded_contract_is_denied_on_windows(hook, kb):
     denied(tool_call(hook, kb.parent, "Edit", edit_input))
     denied(bash(hook, kb.parent, f"sed -i s/a/b/ {folder}/charter.yaml"))
     denied(bash(hook, kb.parent, f"cd {folder} && rm charter.yaml"))
+
+
+def test_a_move_of_the_contract_to_an_overlong_name_is_denied(hook, kb):
+    # Checking whether a 5000-character target is a folder raises an OSError; the guarded source must still count.
+    denied(bash(hook, kb.parent, f"mv kb/charter.yaml {'x' * 5000}"))
+
+
+def test_a_move_of_the_contract_is_denied_when_the_target_cannot_be_checked(hook, kb, monkeypatch):
+    def unreadable(path):
+        raise PermissionError(13, "Permission denied", str(path))
+
+    monkeypatch.setattr(shellwrites.Path, "is_dir", unreadable)
+
+    denied(bash(hook, kb.parent, "mv kb/charter.yaml elsewhere"))
