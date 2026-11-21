@@ -4,6 +4,7 @@ started Establish, Evolve or Migrate in that session."""
 import io
 import json
 import os
+import pathlib
 import sys
 
 import pytest
@@ -36,7 +37,7 @@ def run_hook(capsys, monkeypatch, argv, data, cwd):
 @pytest.fixture
 def hook(capsys, monkeypatch, tmp_path):
     """Feed one hook event to `charter-hook EVENT` on stdin, with markers kept under a test state folder."""
-    monkeypatch.setenv("CHARTER_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv(guard.STATE_VARIABLE, str(tmp_path / "state"))
 
     def run(event, payload, cwd):
         return run_hook(capsys, monkeypatch, [event], json.dumps(payload).encode("utf-8"), cwd)
@@ -318,3 +319,109 @@ def test_a_git_bash_path_to_a_guarded_contract_is_denied_on_windows(hook, kb):
     denied(tool_call(hook, kb.parent, "Edit", edit_input))
     denied(bash(hook, kb.parent, f"sed -i s/a/b/ {folder}/charter.yaml"))
     denied(bash(hook, kb.parent, f"cd {folder} && rm charter.yaml"))
+
+
+def test_a_move_of_the_contract_to_an_overlong_name_is_denied(hook, kb):
+    # Checking whether a 5000-character target is a folder raises an OSError; the guarded source must still count.
+    denied(bash(hook, kb.parent, f"mv kb/charter.yaml {'x' * 5000}"))
+
+
+def test_a_move_of_the_contract_is_denied_when_the_target_cannot_be_checked(hook, kb, monkeypatch):
+    def unreadable(path):
+        raise PermissionError(13, "Permission denied", str(path))
+
+    monkeypatch.setattr(pathlib.Path, "is_dir", unreadable)
+
+    denied(bash(hook, kb.parent, "mv kb/charter.yaml elsewhere"))
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Windows spells any `~user` as a folder beside the user's own home")
+def test_a_move_of_the_contract_to_the_home_folder_of_an_unknown_user_is_denied(hook, kb):
+    # Resolving `~nosuchuser` raises a RuntimeError; the guarded source must still count, since the shell moves it.
+    denied(bash(hook, kb.parent, "mv kb/charter.yaml ~nosuchuser-charter-test"))
+
+
+def crashed(result):
+    # A crash is a hook error to Claude Code, never exit 2, which would block the call.
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert "charter-hook" in result.stderr
+    return result.stderr
+
+
+def test_a_session_id_that_is_not_valid_text_never_blocks(kb, capsys, monkeypatch, tmp_path):
+    monkeypatch.setenv(guard.STATE_VARIABLE, str(tmp_path / "state"))
+    data = b'{"session_id": "\\ud800", "command_name": "charter:evolve", "cwd": "."}'
+
+    crashed(run_hook(capsys, monkeypatch, ["skill-started"], data, kb))
+
+
+UNKNOWN_HOME = pytest.mark.skipif(
+    os.name == "nt", reason="Windows spells any `~user` as a folder beside the user's own home"
+)
+
+
+@UNKNOWN_HOME
+def test_a_contract_write_charter_cannot_resolve_is_denied(hook, kb):
+    reason = denied(bash(hook, kb.parent, "cp x ~nosuchuser-charter-test/charter.yaml"))
+
+    assert "could not check" in reason
+
+
+@UNKNOWN_HOME
+def test_a_folder_charter_cannot_resolve_before_a_contract_write_denies_the_call(hook, kb):
+    reason = denied(bash(hook, kb.parent, f"cd ~nosuchuser-charter-test; rm {kb / 'charter.yaml'}"))
+
+    assert "could not check" in reason
+    assert "/charter:evolve" in reason
+
+
+@UNKNOWN_HOME
+def test_an_error_after_a_guarded_write_keeps_that_write_denied(hook, kb):
+    reason = denied(bash(hook, kb.parent, "rm kb/charter.yaml; cd ~nosuchuser-charter-test"))
+
+    assert str(kb / "charter.yaml") in reason
+
+
+@UNKNOWN_HOME
+def test_a_call_charter_cannot_check_is_allowed_after_the_human_typed_evolve(hook, kb):
+    started(hook, kb)
+
+    assert allowed(bash(hook, kb.parent, "cd ~nosuchuser-charter-test; rm charter.yaml"))
+
+
+@UNKNOWN_HOME
+def test_an_error_in_a_command_that_names_no_contract_never_blocks(hook, kb):
+    crashed(bash(hook, kb.parent, "cd ~nosuchuser-charter-test; ls"))
+
+
+def test_a_deeply_nested_event_never_blocks(kb, capsys, monkeypatch):
+    data = b"[" * 100_000 + b"]" * 100_000
+
+    crashed(run_hook(capsys, monkeypatch, ["pre-tool-use"], data, kb))
+
+
+def deeply_nested(path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("agents: " + "[" * 100_000 + "]" * 100_000 + "\n", encoding="utf-8")
+
+
+def test_a_contract_whose_guard_cannot_be_read_counts_as_guarded(hook, kb):
+    deeply_nested(kb / "charter.yaml")
+
+    denied(edit(hook, kb))
+
+
+def test_a_contract_whose_guard_cannot_be_read_does_not_hide_a_guarded_one(hook, kb):
+    deeply_nested(kb.parent / "evil" / "charter.yaml")
+
+    denied(bash(hook, kb.parent, "rm evil/charter.yaml kb/charter.yaml"))
+    denied(bash(hook, kb.parent, "rm kb/charter.yaml evil/charter.yaml"))
+
+
+def test_a_guard_without_an_agents_file_is_on_for_describe_and_the_hook_alike(hook, kb, charter):
+    # `describe` reads the guard through the contract's agent layer, the hook reads `agents.guard` directly.
+    (kb / "charter.yaml").write_text("charter: 1\nagents: {guard: true}\nkinds: {}\n", encoding="utf-8")
+
+    assert charter("describe", "--format", "json", cwd=kb).json()["guard"] is True
+    denied(edit(hook, kb))

@@ -17,6 +17,9 @@ _STILL_ACTIVE = 259
 # tests/fixtures/plugins/misbehave/misbehave.py repeats this value as a literal, since a plugin cannot import it.
 LEFTOVER_SECONDS = 30
 
+# How long `gone_within` waits by default for a process to end.
+GONE_WITHIN_SECONDS = 10.0
+
 
 def windows_only():
     if os.name != "nt":
@@ -71,7 +74,7 @@ def _state_posix(pid):
     return result.stdout.strip()[:1] or None
 
 
-def gone_within(pid, seconds=10.0):
+def gone_within(pid, seconds=GONE_WITHIN_SECONDS):
     """Whether the process `pid` has ended, or ends within `seconds`."""
     deadline = time.monotonic() + seconds
     while alive(pid):

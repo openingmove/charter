@@ -67,3 +67,56 @@ def test_the_mature_example_compares_titles_the_survey_already_pairs_with_files(
     assert "pairs each title with an example file" in bakery
     assert "only lists distinct titles" not in bakery
     assert "the draft ignores this README" in bakery
+
+
+# --- a kind with no path cannot take notes from the section map ---
+
+PATHLESS = "`charter new` cannot create one: it has no path."
+
+
+def _step(number):
+    sections = re.split(r"^## ", (ESTABLISH / "SKILL.md").read_text("utf-8"), flags=re.M)
+    section = next(s for s in sections if s.startswith(f"{number}. "))
+    return re.sub(r"\s+", " ", section.split("\n", 1)[1])
+
+
+def test_describe_prints_the_sentence_the_skill_looks_for_on_a_kind_with_no_path(charter, tmp_path):
+    (tmp_path / "charter.yaml").write_text(
+        "charter: 1\nroot: .\nkinds:\n"
+        "  topic:\n    description: A topic, placed anywhere.\n"
+        "  story:\n    description: A story.\n    path: \"stories/{title}.md\"\n"
+        "    fields:\n      title: {type: string, required: true}\n",
+        encoding="utf-8",
+    )
+
+    result = charter("describe", cwd=tmp_path)
+
+    assert result.exit_code == 0, result.stderr
+    assert result.stdout.count(PATHLESS) == 1
+
+
+def test_approval_checks_every_kind_the_plan_creates_notes_for_has_a_path_before_the_yes():
+    approval = _step(10)
+
+    assert PATHLESS in approval
+    assert "When step 11 will hand off to Migrate" in approval
+    assert "predict the plan's `Section map` now: it is written only in step 13" in approval
+    assert "every kind that the plan's `Section map` will create notes for" in approval
+    assert "Migrate creates each of those notes with `charter new`" in approval
+    assert "before you ask for the yes" in approval
+    assert approval.index(PATHLESS) < approval.index("Ask for a yes")
+
+
+def test_the_section_map_names_no_target_of_a_kind_with_no_path():
+    handoff = _step(13)
+
+    assert "Name no `TARGET` of a kind that has no path" in handoff
+    assert "go back to step 10" in handoff
+
+
+def test_the_interview_table_moves_an_append_only_file_out_of_a_protected_folder():
+    rows = [line for line in (ESTABLISH / "interview.md").read_text("utf-8").splitlines() if line.startswith("| ")]
+
+    row = next(row for row in rows if "append" in row.split("|")[1])
+    assert "`edit: create-only` or `edit: read-only`" in row
+    assert "must move out of that folder" in row

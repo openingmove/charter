@@ -4,7 +4,20 @@ Each release of charter has a section here, newest first. The section for a vers
 
 ## Unreleased
 
+### Changed
+
+- When `charter-hook` crashes, it prints one line, `charter-hook EVENT: ERROR`, instead of a traceback, and exits `1`. Claude Code reports a hook error and goes on. It never exits `2`, which would block the call.
+- Establish checks, before it asks for approval, that every kind the migration plan will create notes for has a `path`. Migrate creates those notes with `charter new`, which cannot create a note of a kind with no path. Establish tells the human about each such kind.
+- Establish tells the human that a file which is only ever appended to cannot stay in a folder under `edit: create-only` or `edit: read-only`: the file must move out of that folder.
+
+### Fixed
+
+- The contract guard no longer lets an `mv` of a guarded `charter.yaml` through when charter cannot check the target, for example an overlong name or the home folder of an unknown user (`~nosuchuser`).
+- The contract guard now fails closed. A `charter.yaml` whose guard charter cannot read, such as YAML nested too deep to parse, counts as guarded. A call that names `charter.yaml` but that charter cannot split or resolve is denied, with a reason that says charter could not check it. An error on one file no longer hides a guarded contract elsewhere in the same command. See [The contract guard](docs/guide/Contract-guard.md).
+
 ### Documentation
+
+- [The contract guard](docs/guide/Contract-guard.md) names the marker file it writes for a session: `sessions/<sha256 of the session id>.json` in the per-user state folder.
 
 - The install command names `@main`, the branch that holds the latest release. [Install](docs/guide/Install.md) shows how to pin one release instead.
 - [Plugins](docs/guide/Plugins.md) no longer describes the `needs: [body]` rule for linked notes as new. charter 0.2.0 already applied it.
