@@ -16,7 +16,7 @@ How it works:
 
 The guard judges the contract on disk before the call, so the edit that removes `guard: true` is itself refused. A contract that is missing or does not parse as YAML has no opt-in the guard can see, and the guard leaves it alone.
 
-When the guard cannot check a call, it refuses it. A `charter.yaml` whose guard it cannot read, such as YAML nested too deep to parse, counts as guarded. A call that names `charter.yaml` but that charter cannot split or resolve, such as `cd ~nosuchuser; rm charter.yaml`, is denied with a reason that says charter could not check the command. After the human types `/charter:evolve`, the session may make these calls too. A call that does not name `charter.yaml` is never refused this way.
+When the guard cannot check a call, it refuses it. A `charter.yaml` whose guard it cannot read, such as YAML nested too deep to parse, counts as guarded. A call that names `charter.yaml` but that charter cannot split or resolve, such as `cd ~nosuchuser; rm charter.yaml`, is denied with a reason that says charter could not check the command. After the human types `/charter:evolve`, the session may make these calls too. When the guard cannot check for the session's marker, for example because the state folder cannot be read or the session id cannot be encoded, it denies a call that writes a guarded contract, with a reason that names the error. A call that does not name `charter.yaml` is never refused this way, and a call that writes no guarded contract is never blocked by a file system error.
 
 Limits:
 
