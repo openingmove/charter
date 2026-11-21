@@ -7,14 +7,16 @@ Agents cannot start those skills, so only a command the human typed produces a m
 does not.
 
 The plugin's `hooks/hooks.json` filters the calls, so these commands start only for a typed charter skill and for
-a tool call that names a `charter.yaml`. Both exit 0 for every event they can answer, including an unreadable one, and
-for a file system error: none of those blocks a call. Any other crash exits 1, which Claude Code reports as a hook
-error and goes on.
+a tool call that names a `charter.yaml`. Both exit 0 for every event they can answer, including an unreadable one.
 
-`pre-tool-use` fails closed for a contract. A contract whose guard it cannot read, such as YAML nested too deep to
-parse, counts as guarded. An error while it splits or resolves a call whose input names `charter.yaml` denies the
-call, with a reason that says charter could not check it, and keeps every guarded contract found before the error.
-A session with a marker may still make both calls.
+A file system error never blocks a call that writes no guarded contract: the command exits 0 and stays silent. Any
+other crash exits 1, which Claude Code reports as a hook error and goes on.
+
+For a call that does write a guarded contract, `pre-tool-use` fails closed: every failure to check denies it. A
+contract whose guard it cannot read, such as YAML nested too deep to parse, counts as guarded. An error while it
+splits or resolves a call whose input names `charter.yaml` denies the call, with a reason that says charter could not
+check it, and keeps every guarded contract found before the error. An error while it checks for the session marker,
+such as an unreadable state folder, counts as no marker. A session with a marker may still make these calls.
 
 It is a program of its own, not a `charter` subcommand, because Claude Code treats exit 2 as a block. An older
 `charter` would answer an unknown subcommand with argparse's exit 2 and so refuse every charter skill and contract
@@ -26,6 +28,7 @@ import datetime
 import hashlib
 import json
 import os
+import stat
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -143,13 +146,32 @@ def pre_tool_use(event: dict[str, Any]) -> dict[str, Any] | None:
         failure = error
     if not guarded and failure is None:
         return None
-    if isinstance(session_id, str) and session_id and _marker(session_id).is_file():
-        return None
+    if isinstance(session_id, str) and session_id:
+        try:
+            if _has_marker(session_id):
+                return None
+        except Exception as error:
+            # Any failure to check for the marker counts as no marker: fail closed.
+            return _deny(_no_marker_check_reason(error))
+    return _deny(_reason(guarded[0]) if guarded else _unchecked_reason(failure))
+
+
+def _has_marker(session_id: str) -> bool:
+    """Whether the session has a marker. Raises when charter cannot tell, on every Python: `Path.is_file()` hides
+    some errors as False, and 3.14 hides all of them."""
+    try:
+        mode = _marker(session_id).stat().st_mode
+    except (FileNotFoundError, NotADirectoryError):
+        return False
+    return stat.S_ISREG(mode)
+
+
+def _deny(reason: str) -> dict[str, Any]:
     return {
         "hookSpecificOutput": {
             "hookEventName": "PreToolUse",
             "permissionDecision": "deny",
-            "permissionDecisionReason": _reason(guarded[0]) if guarded else _unchecked_reason(failure),
+            "permissionDecisionReason": reason,
         }
     }
 
@@ -171,6 +193,14 @@ def _unchecked_reason(error: Exception | None) -> str:
     return (
         f"This call names `{CONTRACT_FILENAME}`, and charter could not check whether it writes a contract with its "
         f"guard on ({type(error).__name__}: {error}), so the contract guard refuses it. {_ASK_FOR_EVOLVE}"
+    )
+
+
+def _no_marker_check_reason(error: Exception) -> str:
+    return (
+        f"This call may write a charter contract with its guard on, and charter could not check for the session "
+        f"marker that lets this session write one ({type(error).__name__}: {error}), so the contract guard refuses it. "
+        f"{_ASK_FOR_EVOLVE}"
     )
 
 

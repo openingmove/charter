@@ -425,3 +425,40 @@ def test_a_guard_without_an_agents_file_is_on_for_describe_and_the_hook_alike(ho
 
     assert charter("describe", "--format", "json", cwd=kb).json()["guard"] is True
     denied(edit(hook, kb))
+
+
+@pytest.fixture
+def unreadable_state(hook, kb, tmp_path):
+    """The test state folder at mode 000, holding a marker for this session; skipped where mode bits do not bind."""
+    if os.name == "nt" or os.geteuid() == 0:
+        pytest.skip("needs POSIX permissions that bind the current user")
+    started(hook, kb)
+    state = tmp_path / "state"
+    state.chmod(0)
+    yield state
+    state.chmod(0o755)
+
+
+def test_a_contract_write_is_denied_when_the_state_folder_cannot_be_read(hook, kb, unreadable_state):
+    reason = denied(bash(hook, kb.parent, "rm kb/charter.yaml"))
+
+    assert "session marker" in reason
+    assert "PermissionError" in reason
+    assert "/charter:evolve" in reason
+
+
+def test_a_call_that_writes_no_guarded_contract_never_blocks_when_the_state_folder_cannot_be_read(
+    hook, kb, unreadable_state
+):
+    assert allowed(bash(hook, kb.parent, "cat kb/charter.yaml"))
+    (kb / "charter.yaml").write_text(UNGUARDED, encoding="utf-8")
+    assert allowed(bash(hook, kb.parent, "rm kb/charter.yaml"))
+
+
+def test_a_contract_write_in_a_session_whose_id_is_not_valid_text_is_denied(kb, capsys, monkeypatch, tmp_path):
+    monkeypatch.setenv(guard.STATE_VARIABLE, str(tmp_path / "state"))
+    data = b'{"session_id": "a\\udc80", "cwd": ".", "tool_name": "Bash", "tool_input": {"command": "rm charter.yaml"}}'
+
+    reason = denied(run_hook(capsys, monkeypatch, ["pre-tool-use"], data, kb))
+
+    assert "session marker" in reason
