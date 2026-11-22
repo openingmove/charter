@@ -1,4 +1,5 @@
 import shutil
+import unicodedata
 
 import pytest
 from conftest import AGENTS_INCLUDE_OFF, FIXTURES, commit_files, delete_git_object, run_git, write_files
@@ -489,3 +490,58 @@ def test_a_vendored_plugin_without_links_is_unchanged_by_the_link_check(charter,
     _stage(kb, {"notes/a.md": PLAN + "\nMore.\n"})
 
     assert _codes(_staged(charter, kb)) == []
+
+
+DOCS_MANIFEST = 'charter_plugin: 1\nid: todo-free\nversion: 1.2.0\nrun: ["python", "check.py"]\ndocs: rules.md\n'
+
+
+@pytest.mark.parametrize(
+    ("manifest_name", "docs_name", "problem"),
+    [
+        ("charter-plugin.yaml", "RULES.md", "`docs` file `rules.md` could not be read"),
+        (
+            "CHARTER-PLUGIN.YAML",
+            "rules.md",
+            "plugin manifest `tools/todo-free/charter-plugin.yaml`: the file could not be read",
+        ),
+    ],
+    ids=["docs", "manifest"],
+)
+def test_a_plugin_file_named_in_another_letter_case_is_refused_in_every_mode(
+    charter, make_kb, manifest_name, docs_name, problem
+):
+    # Why: a file system that ignores case finds `RULES.md` for `rules.md`; git, and so `--range`, never does.
+    kb = _plugin_kb(make_kb)
+    base = run_git(kb, "rev-parse", "HEAD").strip()
+    plugin = kb / "tools" / "todo-free"
+    # Why: with `core.ignorecase`, `git add` keeps the index entry's old spelling over a case-only rename.
+    run_git(kb, "rm", "-q", "--cached", "tools/todo-free/charter-plugin.yaml")
+    (plugin / "charter-plugin.yaml").unlink()
+    (plugin / manifest_name).write_text(DOCS_MANIFEST)
+    (plugin / docs_name).write_text("# Rules\n")
+    run_git(kb, "add", "-A")
+
+    from_index = _staged(charter, kb)
+    from_working_copy = charter("validate", "--format", "json", cwd=kb)
+    run_git(kb, "commit", "-q", "-m", "Rename a plugin file")
+    from_range = charter("validate", f"--range={base}..HEAD", "--format", "json", cwd=kb)
+
+    for result in (from_index, from_working_copy, from_range):
+        assert result.exit_code == 2
+        diagnostics = result.json()["diagnostics"]
+        assert [(d["path"], d["code"]) for d in diagnostics] == [("charter.yaml", "contract/invalid")]
+        assert problem in diagnostics[0]["message"]
+
+
+def test_a_plugin_docs_name_matches_its_file_in_either_unicode_form(charter, make_kb):
+    # Why: macOS may store a name decomposed (NFD) and git there reports it composed (NFC), so `--range` finds it.
+    kb = _plugin_kb(make_kb)
+    plugin = kb / "tools" / "todo-free"
+    composed = unicodedata.normalize("NFC", "règles.md")
+    (plugin / "charter-plugin.yaml").write_text(DOCS_MANIFEST.replace("rules.md", composed), encoding="utf-8")
+    (plugin / unicodedata.normalize("NFD", composed)).write_text("# Rules\n", encoding="utf-8")
+
+    result = charter("validate", "--format", "json", cwd=kb)
+
+    assert "contract/invalid" not in [d["code"] for d in result.json()["diagnostics"]]
+    assert result.exit_code != 2

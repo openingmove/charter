@@ -342,8 +342,10 @@ def test_plugin_from_git_holding_a_symlink_is_refused(charter, kb, plugin_repo):
         ({"charter-plugin.yaml": "charter_plugin: 1\nid: ../x\nversion: '1'\nrun: [python, x.py]\n"}, "`../x`"),
         ({"charter-plugin.yaml": "charter_plugin: 1\nid: schema\nversion: '1'\nrun: [python, x.py]\n"}, "built-in"),
         ({"charter-plugin.yaml": "charter_plugin: 1\nid: plugin\nversion: '1'\nrun: [python, x.py]\n"}, "reserved"),
+        # Why: a case-insensitive file system would open this for `charter-plugin.yaml`; git never does.
+        ({"CHARTER-PLUGIN.YAML": "charter_plugin: 1\nid: x\nversion: '1'\nrun: [python, x.py]\n"}, "could not be read"),
     ],
-    ids=["no-manifest", "shell", "invalid", "unsafe-id", "builtin-id", "reserved-id"],
+    ids=["no-manifest", "shell", "invalid", "unsafe-id", "builtin-id", "reserved-id", "wrong-case-manifest"],
 )
 def test_plugin_with_a_bad_manifest_is_refused(charter, kb, plugin_repo, files, fragment):
     base = kb()

@@ -18,7 +18,7 @@ from charter.globs import compile_glob
 from charter.lock import Locked, content_hash, is_vendored
 from charter.schemacheck import errors as schema_errors
 from charter.schematext import located_message, schema_message
-from charter.tree import Tree, decode
+from charter.tree import Tree, decode, exact_path
 
 MANIFEST_FILENAME = "charter-plugin.yaml"
 DEFAULT_TIMEOUT_MS = 10_000
@@ -306,7 +306,17 @@ _Reader = Callable[[str], str]
 
 
 def _disk_reader(directory: Path) -> _Reader:
-    return lambda relative: (directory / relative).read_text(encoding="utf-8-sig")
+    """Reads the files of `directory` from disk, by their exact letter case, as git and `--range` name them. A name
+    matches a file in another Unicode form (NFC or NFD), as macOS git reports names."""
+
+    def read(relative: str) -> str:
+        # Why: macOS and Windows file systems ignore case, so `rules.md` would open `RULES.md` there and nowhere else.
+        found = exact_path(directory, relative, any_form=True)
+        if found is None:
+            raise FileNotFoundError(str(directory / relative))
+        return found.read_text(encoding="utf-8-sig")
+
+    return read
 
 
 def _in_source(source: str, relative: str) -> str:
