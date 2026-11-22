@@ -322,6 +322,23 @@ def uncommitted(base_dir: Path, working: Tree, paths: Collection[str] | None = N
     return EditDelta(_before(git, deltas), working, added)
 
 
+def tracks(file: Path) -> bool:
+    """Whether git's index or `HEAD` holds a file at `file` (relative to the working directory, or absolute).
+    False outside a repository, where git is not installed, and for a folder."""
+    absolute = Path(os.path.abspath(file))
+    folder = next((parent for parent in absolute.parents if parent.is_dir()), None)
+    if folder is None:
+        return False
+    # `./` makes the name relative to the folder git runs in, rather than to the top of the working tree.
+    name = "./" + absolute.relative_to(folder).as_posix()
+    git = _Git(folder)
+    try:
+        found = (git._run(["cat-file", "-t", f"{tree}:{name}"], b"") for tree in ("", "HEAD"))
+        return any(finished.stdout.strip() == b"blob" for finished in found)
+    except GitUnavailable:
+        return False
+
+
 def trailers(base_dir: Path, message: bytes) -> list[tuple[str, str]]:
     """The trailers of commit message `message` as git reads them, as (key, value) pairs: only the final
     trailer block, without comment lines or anything below a `--verbose` scissors line, continuation lines

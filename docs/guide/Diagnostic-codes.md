@@ -22,7 +22,7 @@ The other pages of this manual explain most codes where they arise. These are th
 | `usage/unknown-kind`, `usage/unknown-variant`, `usage/no-title-field` | `charter new` names a kind or variant that is not declared, or gives a title to a kind without a `title` field. |
 | `usage/invalid-set`, `usage/repeated-set`, `usage/conflicting-set` | A `--set` that is not `FIELD=VALUE`, is repeated for a single value, or conflicts with the title or `auto` value. |
 | `usage/unknown-note`, `usage/ambiguous-note`, `usage/not-a-note` | `charter sweep` names no note, several, or a file that is not a note. |
-| `usage/file-not-found`, `usage/file-unreadable` | A `--file` or `--commit-msg` path that does not exist, or a commit message file that cannot be read. |
+| `usage/file-not-found`, `usage/file-unreadable` | A `--file` or `--commit-msg` path that does not exist (for `--file`, a deleted file that git still tracks is judged as a deletion instead), or a commit message file that cannot be read. |
 | `usage/commit-msg-without-staged`, `usage/commit-msg-installed-without-staged`, `usage/contract-not-staged`, `usage/not-a-git-repository` | `--commit-msg` or `--commit-msg-installed` without `--staged`, `--staged` with a contract git does not hold, or `--staged`/`--range` outside a git working tree. |
 | `usage/conflicting-options`, `usage/unknown-profile`, `usage/mixed-contracts` | Options that cannot be combined, a profile that is neither built in nor declared, or `--file` paths under different contracts. |
 | `usage/snapshot-arguments` | `charter snapshot` words that fit neither `snapshot FOLDER` nor `snapshot restore ZIP`. |

@@ -974,7 +974,9 @@ def _usage_error(diagnostics: list[Diagnostic], output_format: str) -> int:
 
 
 def _missing_files(contract: Contract | None, files: list[Path]) -> list[Diagnostic]:
-    """One diagnostic per nonexistent file. Before discovery has run there is no loaded contract: the nearest one above the file sets the path form, as typed if none."""
+    """One diagnostic per nonexistent file that git does not track either: a tracked file deleted from the working
+    copy is judged as a deletion. Before discovery has run there is no loaded contract: the nearest one above the
+    file sets the path form, as typed if none."""
     return [
         Diagnostic(
             (contract.path_of(file) if contract else discovery.path_under_contract(file)) or file.as_posix(),
@@ -982,10 +984,11 @@ def _missing_files(contract: Contract | None, files: list[Path]) -> list[Diagnos
             Severity.ERROR,
             "usage/file-not-found",
             f"`{file.as_posix()}` is not an existing file.",
-            "--file takes paths to existing files, relative to the working directory or absolute.",
+            "--file takes paths to existing files, or to deleted files git still tracks, relative to the working "
+            "directory or absolute.",
         )
         for file in files
-        if not file.is_file()
+        if not file.is_file() and (file.exists() or not git.tracks(file))
     ]
 
 
