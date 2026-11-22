@@ -9,9 +9,23 @@ from typing import Protocol
 
 # Version-control internals are never part of a knowledge base, even when root is the repository.
 _SKIPPED_DIRECTORIES = frozenset({".git"})
-# Never part of a plugin: version control, and the bytecode Python leaves beside modules it runs. The one list of
-# names a plugin's files leave out, for its content hash, its links and its copy alike.
-PLUGIN_IGNORED_NAMES = frozenset({".git", "__pycache__"})
+# Never part of a plugin: version control, the bytecode Python leaves beside modules it runs, files the OS drops into
+# folders, tool caches and virtual environments. The one list of names a plugin's files leave out, for its content
+# hash, its links and its copy alike. A name matches a file or directory at any depth, in exact letter case.
+PLUGIN_IGNORED_NAMES = frozenset(
+    {
+        ".git",
+        "__pycache__",
+        ".DS_Store",
+        "Thumbs.db",
+        "desktop.ini",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".ruff_cache",
+        ".venv",
+        "venv",
+    }
+)
 
 
 class Tree(Protocol):
