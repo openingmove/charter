@@ -188,3 +188,37 @@ def test_a_whole_run_leaves_the_skipped_path_out_and_warns(charter, make_kb, tmp
     request = _received(base)
     assert (request["mode"], [note["path"] for note in request["index"]["notes"]]) == ("vault", ["plain.md"])
     assert (ESCAPED, "warning", "plugin/skipped-path") in _by_code(result)
+
+
+def test_a_kinds_trigger_that_matches_only_the_skipped_path_does_not_start_the_plugin_but_still_warns(
+    charter, make_kb
+):
+    base = plugin_kb(make_kb)(TODO_FREE, ["todo-free"], notes={})
+    # A plugin that cannot start: were it started, the run would report `plugin/failed`.
+    rewrite_manifest(base / "tools" / "todo-free", triggers="{kinds: [entry]}", run='["no-such-program-charter"]')
+    run_git(base, "init", "-q", "--initial-branch=main")
+    run_git(base, "add", "-A")
+    # Committed, so the staged change targets the note alone: a staged contract would touch every kind.
+    run_git(base, "commit", "-q", "-m", "base")
+    git_tree_with_paths(base, [BAD_NAME], NOTE)
+
+    result = charter("validate", "--staged", "--profile", "ci", "--format", "json", cwd=base)
+
+    assert result.stderr == ""
+    found = _by_code(result)
+    assert (ESCAPED, "warning", "plugin/skipped-path") in found
+    assert "plugin/failed" not in [code for _, _, code in found]
+
+
+def test_a_modified_plugin_whose_glob_matches_only_the_skipped_path_reports_modified(charter, make_kb, plugin_repo):
+    base = make_kb({"charter.yaml": "charter: 1\nroot: notes\nkinds:\n  entry: {}\n", "notes/.keep": ""})
+    added = charter("plugin", "add", "--from", f"{plugin_repo().as_posix()}@v1.2.0", cwd=base)
+    assert added.exit_code == 0, added.stdout
+    # Changing the vendored manifest is itself the change the lock catches.
+    rewrite_manifest(base / ".charter" / "plugins" / "todo-free", triggers="{globs: ['caf*']}")
+    _staged(base)
+
+    result = charter("validate", "--staged", "--profile", "ci", "--format", "json", cwd=base)
+
+    assert result.stderr == ""
+    assert ("charter.yaml", "error", "plugin/modified") in _by_code(result)

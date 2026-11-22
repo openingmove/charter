@@ -76,16 +76,18 @@ class PluginCheck:
         if request.per_edit and not plugin.hook:
             return []
         if plugin.triggers is not None:
-            # A trigger sees only the targets the plugin would be sent, so a glob that matches nothing but paths that
-            # are not valid UTF-8 does not start the plugin with no targets. The user still learns those paths were
-            # not checked: each one the glob matches is reported as `plugin/skipped-path`.
+            # A trigger sees only the targets the plugin would be sent, and the kinds of those, so a glob or a kind
+            # that matches nothing but paths that are not valid UTF-8 does not start the plugin with no targets. The
+            # user still learns those paths were not checked: each one the trigger matches is reported as
+            # `plugin/skipped-path`, unless the plugin could not have run anyway.
             targets, skipped = _split_utf8([note.path for note in request.target_notes()])
-            if not plugin.triggers.fire(request.kinds, [_local(request, path) for path in targets]):
-                return [
-                    self._skipped(path)
+            if not plugin.triggers.fire(_sent_kinds(request, targets, skipped), [_local(request, p) for p in targets]):
+                matched = [
+                    path
                     for path in sorted(skipped)
-                    if plugin.triggers.fire(frozenset(), [_local(request, path)])
+                    if plugin.triggers.fire(_kinds_of(request, [path]), [_local(request, path)])
                 ]
+                return (self._broken(request) or [self._skipped(path) for path in matched]) if matched else []
         return self.invoke(request)
 
     def invoke(self, request: CheckRequest) -> list[Diagnostic]:
@@ -93,6 +95,18 @@ class PluginCheck:
 
         A locked plugin whose directory no longer matches its hash is not run at all: `plugin/modified`.
         """
+        broken = self._broken(request)
+        if broken:
+            return broken
+        payload, skipped = self._payload(request)
+        warnings = [self._skipped(path) for path in sorted(skipped)]
+        try:
+            return warnings + self._diagnostics(request, payload)
+        except _Failed as failure:
+            return [*warnings, self._failure(request, failure)]
+
+    def _broken(self, request: CheckRequest) -> list[Diagnostic]:
+        """Why the plugin cannot be run (`plugin/failed`, `plugin/modified`), or nothing when it can."""
         plugin = self.plugin
         if plugin.unavailable is not None:
             what = f"could not be run: its files in `{plugin.source}` could not be written out ({plugin.unavailable})."
@@ -105,25 +119,18 @@ class PluginCheck:
             reasons = [f"the files in `{plugin.source}` no longer match the sha256 recorded for it in `{LOCK_FILENAME}`."]
         else:
             reasons = []
-        if reasons:
-            return [
-                Diagnostic(
-                    request.contract.file,
-                    plugin.line,
-                    Severity.ERROR,
-                    PLUGIN_MODIFIED,
-                    f"Plugin `{self.id}` was not run: {reason}",
-                    f"Restore `{plugin.source}` from version control, or install the plugin again with "
-                    "`charter plugin add`.",
-                )
-                for reason in reasons
-            ]
-        payload, skipped = self._payload(request)
-        warnings = [self._skipped(path) for path in sorted(skipped)]
-        try:
-            return warnings + self._diagnostics(request, payload)
-        except _Failed as failure:
-            return [*warnings, self._failure(request, failure)]
+        return [
+            Diagnostic(
+                request.contract.file,
+                plugin.line,
+                Severity.ERROR,
+                PLUGIN_MODIFIED,
+                f"Plugin `{self.id}` was not run: {reason}",
+                f"Restore `{plugin.source}` from version control, or install the plugin again with "
+                "`charter plugin add`.",
+            )
+            for reason in reasons
+        ]
 
     def payload(self, request: CheckRequest) -> str:
         """The `charter-plugin/1` request, as the JSON text the plugin reads on stdin."""
@@ -285,6 +292,19 @@ class PluginCheck:
 def _local(request: CheckRequest, path: str) -> str:
     """`path`, in diagnostic form, as the protocol gives it: relative to the knowledge-base root."""
     return posixpath.relpath(path, request.contract.root_path)
+
+
+def _kinds_of(request: CheckRequest, paths: list[str]) -> frozenset[str]:
+    """The kinds of the notes at `paths`."""
+    kinds = (request.contract.kind_of(note.frontmatter) for note in request.notes if note.path in paths)
+    return frozenset(kind.name for kind in kinds if kind is not None)
+
+
+def _sent_kinds(request: CheckRequest, targets: list[str], skipped: list[str]) -> frozenset[str]:
+    """The kinds the run touches, less those only the skipped targets have: the plugin is not sent those notes."""
+    if not skipped or request.contract.file in request.targets:
+        return request.kinds
+    return request.kinds - (_kinds_of(request, skipped) - _kinds_of(request, targets))
 
 
 def _before(request: CheckRequest) -> tuple[dict[str, Any], set[str]]:

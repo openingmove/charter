@@ -16,6 +16,8 @@ Each release of charter has a section here, newest first. The section for a vers
 - The contract guard now fails closed. A `charter.yaml` whose guard charter cannot read, such as YAML nested too deep to parse, counts as guarded. A call that names `charter.yaml` but that charter cannot split or resolve is denied, with a reason that says charter could not check it. An error on one file no longer hides a guarded contract elsewhere in the same command. See [The contract guard](docs/guide/Contract-guard.md).
 - The contract guard no longer lets a write to a guarded `charter.yaml` through when it cannot check for the session's marker, for example because the state folder cannot be read or the session id cannot be encoded. It denies the call, with a reason that names the error. A call that writes no guarded contract is never blocked by a file system error. See [The contract guard](docs/guide/Contract-guard.md).
 - A plugin run from a git hook can now use git. A hook can set `GIT_DIR`, `GIT_INDEX_FILE` and the other git path variables relative to the top of the working tree, and the plugin got them unchanged, so from its own directory they named nothing. charter now gives the plugin these variables as absolute paths, and sets `GIT_WORK_TREE` when only `GIT_DIR` is set. See [Plugins](docs/guide/Plugins.md).
+- A plugin triggered by `kinds` no longer starts, with no targets, when the only staged note of that kind has a name that is not valid UTF-8. charter still reports `plugin/skipped-path` for that note.
+- A modified or unavailable plugin whose trigger matches only a path that is not valid UTF-8 now reports `plugin/modified` or `plugin/failed`, as it does when its trigger matches a path it would be sent.
 
 ### Documentation
 
