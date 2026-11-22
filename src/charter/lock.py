@@ -17,6 +17,10 @@ from charter.tree import decode, plugin_files
 LOCK_FILENAME = "charter.lock"
 # Where `charter plugin add` puts each plugin, as `<PLUGINS_DIR>/<id>`, relative to charter.yaml.
 PLUGINS_DIR = ".charter/plugins"
+# The name prefix of the folder in PLUGINS_DIR where `plugin add`, `update` and `remove` stage their change.
+STAGING_PREFIX = ".staging-"
+# A staging folder that an interrupted plugin command left behind.
+PLUGIN_LEFTOVER_STAGING = "plugin/leftover-staging"
 # What to do about a plugin that holds a symbolic link, for `plugin add` and for a run alike.
 SYMLINK_HINT = "Ask the plugin's author to replace the link with the file it points to."
 # git reads only this much of a file to decide whether it is binary.
@@ -129,6 +133,27 @@ def _locked(entry: Mapping[str, Any]) -> Locked:
 
 def vendored_directory(plugin_id: str) -> str:
     return f"{PLUGINS_DIR}/{plugin_id}"
+
+
+def leftover_staging(base_dir: Path) -> list[Diagnostic]:
+    """A warning for each staging folder in PLUGINS_DIR. Only an interrupted plugin command leaves one, and its
+    `previous/` may hold the only copy of a plugin's previous directory, so charter reports it and never deletes it."""
+    try:
+        names = sorted(entry.name for entry in (base_dir / PLUGINS_DIR).iterdir())
+    except OSError:
+        return []
+    return [
+        Diagnostic(
+            shown,
+            None,
+            Severity.WARNING,
+            PLUGIN_LEFTOVER_STAGING,
+            f"`{shown}` was left behind by an interrupted `charter plugin add`, `update` or `remove`.",
+            "Its `previous/` folder may hold the only copy of a plugin's previous directory. Check it, then delete "
+            "the folder yourself; charter never deletes it.",
+        )
+        for shown in (f"{PLUGINS_DIR}/{name}" for name in names if name.startswith(STAGING_PREFIX))
+    ]
 
 
 def is_vendored(plugin_id: str, source: str | None, locked: Mapping[str, Locked]) -> bool:
