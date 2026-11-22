@@ -3,7 +3,7 @@
 import operator
 import re
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path, PureWindowsPath
 from typing import Any, Literal
@@ -111,14 +111,22 @@ class Plugin:
     # Why the directory could not be written out of the tree (a full disk, a name the file system refuses);
     # set only on a stand-in that cannot run and is reported as `plugin/failed`.
     unavailable: str | None = None
-    # The symbolic links a vendored plugin's directory holds, as the tree has them (the index entry's mode for a
-    # staged plugin): the directory on disk may have resolved them. A plugin holding one is not run.
-    links: tuple[str, ...] = ()
+    # Where `source` was read from; None for a stand-in, which holds no files.
+    tree: Tree | None = field(default=None, compare=False, repr=False)
+
+    @cached_property
+    def links(self) -> tuple[str, ...]:
+        """The symbolic links a vendored plugin's directory holds, as the tree has them (the index entry's mode for
+        a staged plugin): the directory on disk may have resolved them. A plugin holding one is not run."""
+        if self.sha256 is None or self.tree is None:
+            return ()
+        return tuple(self.tree.symlinks(self.source))
 
     @cached_property
     def modified(self) -> bool:
-        """Whether a vendored plugin's directory differs from what was locked; hashed once per load."""
-        return self.sha256 is not None and content_hash(self.directory) != self.sha256
+        """Whether a vendored plugin's files, its links left out, differ from what was locked; hashed once per
+        load."""
+        return self.sha256 is not None and content_hash(self.directory, leaving_out=self.links) != self.sha256
 
     def runs_for_kind(self, kind: str) -> bool:
         """Whether runs touching notes of `kind` start the plugin, whatever paths they target."""
@@ -230,7 +238,7 @@ def load_plugins(
             line=yamlsource.line_of(node, ["checks", check_id]),
             docs=docs,
             sha256=locked[check_id].sha256 if vendored else None,
-            links=tuple(tree.symlinks(source)) if vendored else (),
+            tree=tree,
         )
     return plugins, problems
 

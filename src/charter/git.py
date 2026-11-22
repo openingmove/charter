@@ -6,7 +6,6 @@ import posixpath
 import re
 import stat
 import tempfile
-import unicodedata
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -14,9 +13,8 @@ from typing import Generic, TypeVar
 
 from charter.files import remove_tree
 from charter.history import EditDelta, NoHistory
-from charter.lock import IGNORED_NAMES
 from charter.process import Finished, run_bounded
-from charter.tree import Tree
+from charter.tree import Tree, plugin_name
 
 # Generous: git's own output, never a plugin's, but a runaway must not exhaust memory.
 _OUTPUT_LIMIT = 1024 * 1024 * 1024
@@ -122,7 +120,7 @@ class GitTree:
         self._git = git
         self._blobs = _resolved(git, entries)
         # Kept from the entries, which `_blobs` has resolved away: a link is told by its mode alone.
-        self._links = sorted(path for path, (mode, _) in entries.items() if mode == _SYMLINK)
+        self._links = [path for path, (mode, _) in entries.items() if mode == _SYMLINK]
         self._directories = {parent for path in self._blobs for parent in _parents(path)}
         self._contents: dict[str, bytes] = {}
         self._scratch: Path | None = None
@@ -169,13 +167,9 @@ class GitTree:
 
     def symlinks(self, path: str) -> list[str]:
         prefix = "" if path == "." else f"{path}/"
-        relatives = (link.removeprefix(prefix) for link in self._links if link.startswith(prefix))
-        # The same names, in the same form, as the working copy's `lock.symlinks_in`.
-        return sorted(
-            unicodedata.normalize("NFC", relative)
-            for relative in relatives
-            if IGNORED_NAMES.isdisjoint(relative.split("/"))
-        )
+        names = (plugin_name(link.removeprefix(prefix)) for link in self._links if link.startswith(prefix))
+        # The same names, in the same form, as the working copy's `tree.symlinks_in`.
+        return sorted(name for name in names if name is not None)
 
     def close(self) -> list[Path]:
         """Removes the temporary directory; returns what could not be deleted."""

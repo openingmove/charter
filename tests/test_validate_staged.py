@@ -447,7 +447,11 @@ def test_a_staged_plugin_whose_file_and_directory_differ_only_by_case_is_a_plugi
 
 
 def _plugin_diagnostics(result):
-    return [(d["path"], d["line"], d["code"], d["message"], d["hint"]) for d in result.json()["diagnostics"]]
+    """The `plugin/modified` diagnostics, as (message, hint) pairs."""
+    return [(d["message"], d["hint"]) for d in result.json()["diagnostics"] if d["code"] == "plugin/modified"]
+
+
+LINK_HINT = "Ask the plugin's author to replace the link with the file it points to."
 
 
 def test_a_staged_link_in_a_vendored_plugin_is_reported_as_the_working_copy_reports_it(charter, make_kb):
@@ -466,9 +470,10 @@ def test_a_staged_link_in_a_vendored_plugin_is_reported_as_the_working_copy_repo
     from_index = _staged(charter, working)
 
     assert (from_index.exit_code, from_working_copy.exit_code) == (3, 3)
-    reported = _plugin_diagnostics(from_index)
-    assert [(code, "`lib/shared.py`" in message) for _, _, code, message, _ in reported] == [("plugin/modified", True)]
-    assert reported == _plugin_diagnostics(from_working_copy)
+    [(message, hint)] = _plugin_diagnostics(from_index)
+    assert "`lib/shared.py`" in message
+    assert hint == LINK_HINT
+    assert _plugin_diagnostics(from_working_copy) == [(message, hint)]
 
 
 def test_a_staged_link_in_a_vendored_plugin_is_found_by_its_mode_though_it_leads_nowhere(charter, make_kb):
@@ -480,9 +485,57 @@ def test_a_staged_link_in_a_vendored_plugin_is_found_by_its_mode_though_it_leads
     result = _staged(charter, kb)
 
     assert result.exit_code == 3
-    assert [(code, "`lib/copy.py`" in message) for _, _, code, message, _ in _plugin_diagnostics(result)] == [
-        ("plugin/modified", True)
-    ]
+    [(message, _)] = _plugin_diagnostics(result)
+    assert "`lib/copy.py`" in message
+
+
+def test_every_link_in_a_vendored_plugin_is_named_in_one_diagnostic(charter, make_kb):
+    kb = _vendored(charter, make_kb)
+    _stage(kb, {"notes/a.md": PLAN + "\nMore.\n"})
+    _stage_link(kb, ".charter/plugins/todo-free/lib/one.py", "../check.py")
+    _stage_link(kb, ".charter/plugins/todo-free/two.py", "check.py")
+
+    result = _staged(charter, kb)
+
+    assert result.exit_code == 3
+    [(message, hint)] = _plugin_diagnostics(result)
+    assert "`lib/one.py`" in message
+    assert "`two.py`" in message
+    assert hint == LINK_HINT
+
+
+def test_a_link_and_an_edited_file_in_a_vendored_plugin_are_both_reported(charter, make_kb):
+    kb = _vendored(charter, make_kb)
+    _stage(kb, {"notes/a.md": PLAN + "\nMore.\n", VENDORED: "edited\n"})
+    _stage_link(kb, ".charter/plugins/todo-free/lib/one.py", "../check.py")
+
+    result = _staged(charter, kb)
+
+    assert result.exit_code == 3
+    [(links, link_hint), (mismatch, mismatch_hint)] = _plugin_diagnostics(result)
+    assert "`lib/one.py`" in links
+    assert link_hint == LINK_HINT
+    assert "no longer match the sha256" in mismatch
+    assert mismatch_hint.startswith("Restore `.charter/plugins/todo-free` from version control")
+
+
+def test_a_link_and_an_edited_file_in_a_working_copy_plugin_are_both_reported(charter, make_kb):
+    kb = _vendored(charter, make_kb)
+    write_files(kb, {VENDORED: "edited\n"})
+    try:
+        (kb / ".charter/plugins/todo-free/one.py").symlink_to("check.py")
+        (kb / ".charter/plugins/todo-free/two.py").symlink_to("check.py")
+    except (OSError, NotImplementedError):
+        pytest.skip("this machine cannot create symbolic links")
+
+    result = charter("validate", "--format", "json", cwd=kb)
+
+    assert result.exit_code == 3
+    [(links, link_hint), (mismatch, _)] = _plugin_diagnostics(result)
+    assert "`one.py`" in links
+    assert "`two.py`" in links
+    assert link_hint == LINK_HINT
+    assert "no longer match the sha256" in mismatch
 
 
 def test_a_vendored_plugin_without_links_is_unchanged_by_the_link_check(charter, make_kb):

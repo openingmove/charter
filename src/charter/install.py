@@ -19,7 +19,6 @@ from charter.contract import PluginSettings
 from charter.diagnostics import CORE_NAMESPACES, Diagnostic, Refused, Severity, code_list
 from charter.files import append_lines, left_behind, remove_tree, replace_file, writing
 from charter.lock import (
-    IGNORED_NAMES,
     LOCK_FILENAME,
     PLUGINS_DIR,
     DevSource,
@@ -28,14 +27,15 @@ from charter.lock import (
     content_hash,
     is_vendored,
     lock_bytes,
+    SYMLINK_HINT,
     symlink_reason,
-    symlinks_in,
     vendored_directory,
     write_lock,
 )
 from charter.pathpattern import segment_problem
 from charter.plugin import MANIFEST_FILENAME, manifest_of
 from charter.process import Finished, run_bounded
+from charter.tree import PLUGIN_IGNORED_NAMES, symlinks_in
 from charter.validate import CHECK_CODES
 
 WRITE_FAILED = "plugin/write-failed"
@@ -342,7 +342,7 @@ def _commit(
         locked = {other: entry for other, entry in settings.locked.items() if other != plugin_id}
         with writing(relative, WRITE_FAILED):
             if copy is not None:
-                shutil.copytree(copy.source, new, ignore=shutil.ignore_patterns(*IGNORED_NAMES))
+                shutil.copytree(copy.source, new, ignore=shutil.ignore_patterns(*PLUGIN_IGNORED_NAMES))
                 sha256 = content_hash(new)
                 # The source was checked for links, so the copy holds none and has a hash.
                 assert sha256 is not None
@@ -558,8 +558,8 @@ def _install(
             _problem(
                 settings,
                 "plugin/symlink",
-                f"`{shown}` {symlink_reason(link)}",
-                "Ask the plugin's author to replace the link with the file it points to.",
+                f"`{shown}` {symlink_reason([link])}",
+                SYMLINK_HINT,
             )
             for link in links
         ])
@@ -592,7 +592,7 @@ def _install(
 
 def _is_python(plugin: Path) -> bool:
     return any(
-        file.is_file() and file.suffix == ".py" and not IGNORED_NAMES.intersection(file.relative_to(plugin).parts)
+        file.is_file() and file.suffix == ".py" and not PLUGIN_IGNORED_NAMES.intersection(file.relative_to(plugin).parts)
         for file in plugin.rglob("*.py")
     )
 
