@@ -10,7 +10,7 @@ import json
 import posixpath
 from typing import Any
 
-from charter import __version__
+from charter import __version__, git
 from charter.checks import CheckRequest
 from charter.diagnostics import PLUGIN_FAILED, PLUGIN_MODIFIED, PLUGIN_SKIPPED_PATH, Diagnostic, Severity
 from charter.files import contract_relative
@@ -245,8 +245,18 @@ class PluginCheck:
     def _spawn(self, payload: bytes) -> tuple[bytes, bytes]:
         plugin = self.plugin
         try:
+            # Finding the working tree for a GIT_DIR alone runs git, which may fail to start.
+            environment = git.environment()
+        except git.GitError as error:
+            raise _Failed(f"could not be given its environment: {error.message}") from None
+        try:
             finished = run_bounded(
-                plugin.run, plugin.directory, payload, timeout=plugin.timeout_ms / 1000, limit=_OUTPUT_LIMIT
+                plugin.run,
+                plugin.directory,
+                payload,
+                timeout=plugin.timeout_ms / 1000,
+                limit=_OUTPUT_LIMIT,
+                env=environment,
             )
         except OSError as error:
             raise _Failed(f"could not start `{plugin.run[0]}`: {error.strerror or error}.") from None

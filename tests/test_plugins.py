@@ -4,6 +4,7 @@ import shutil
 import time
 
 import pytest
+from charter import git as git_module
 from conftest import FIXTURES, commit_files, run_git, write_files
 from plugin_support import (
     KINDS_TWO,
@@ -76,6 +77,25 @@ def test_plugin_runs_in_its_own_directory_and_receives_the_request(charter, kb):
         "headings": [{"level": 1, "text": "Plans", "line": 4}, {"level": 2, "text": "A secret step", "line": 6}],
         "tags": [],
     }
+
+
+def test_plugin_run_from_a_git_hook_gets_git_paths_made_absolute(charter, kb, monkeypatch):
+    # A commit hook runs at the top of the working tree and may set GIT_DIR and GIT_INDEX_FILE relative to it, but
+    # the plugin runs in its own directory, where those relative paths name nothing.
+    base = kb("  git-env:\n    source: tools/git-env\n", ["git-env"])
+    run_git(base, "init", "-q")
+    run_git(base, "add", "-A")
+    monkeypatch.setenv("GIT_DIR", ".git")
+    monkeypatch.setenv("GIT_INDEX_FILE", ".git/index")
+    monkeypatch.delenv("GIT_WORK_TREE", raising=False)
+
+    result = charter("validate", "--format", "json", cwd=base)
+
+    assert (result.exit_code, result.json()["diagnostics"]) == (0, [])
+    seen = json.loads((base / "tools" / "git-env" / "git-env.json").read_text(encoding="utf-8"))
+    assert os.path.isabs(seen["GIT_DIR"]) and os.path.samefile(seen["GIT_DIR"], base / ".git")
+    assert os.path.isabs(seen["GIT_INDEX_FILE"]) and os.path.samefile(seen["GIT_INDEX_FILE"], base / ".git" / "index")
+    assert os.path.samefile(seen["GIT_WORK_TREE"], base)
 
 
 def test_request_carries_the_day_the_run_is_judged_as_of(charter, kb, monkeypatch):
@@ -215,6 +235,27 @@ def test_plugin_whose_command_cannot_start_fails(charter, kb):
     assert result.exit_code == 3
     assert _diagnostics(result) == [("charter.yaml", 7, "error", "plugin/failed")]
     assert "`charter-test-no-such-program`" in result.json()["diagnostics"][0]["message"]
+
+
+def test_plugin_fails_when_git_cannot_start_to_find_the_working_tree(charter, kb, monkeypatch):
+    # With GIT_DIR set and GIT_WORK_TREE not, charter asks git for the working tree before it starts the plugin.
+    base = kb("  probe:\n    source: tools/probe\n", ["probe"])
+    monkeypatch.setenv("GIT_DIR", ".git")
+    monkeypatch.delenv("GIT_WORK_TREE", raising=False)
+    started = git_module.run_bounded
+
+    def no_git(command, *args, **kwargs):
+        if command[0] == "git":
+            raise FileNotFoundError(2, "No such file or directory")
+        return started(command, *args, **kwargs)
+
+    monkeypatch.setattr(git_module, "run_bounded", no_git)
+
+    result = charter("validate", "--format", "json", cwd=base)
+
+    assert result.exit_code == 3
+    assert _diagnostics(result) == [("charter.yaml", 7, "error", "plugin/failed")]
+    assert "git could not be run" in result.json()["diagnostics"][0]["message"]
 
 
 def test_plugin_failure_exits_three_even_beside_other_errors_and_in_every_format(charter, kb):
