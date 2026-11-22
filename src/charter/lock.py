@@ -139,7 +139,11 @@ def leftover_staging(base_dir: Path) -> list[Diagnostic]:
     """A warning for each staging folder in PLUGINS_DIR. Only an interrupted plugin command leaves one, and its
     `previous/` may hold the only copy of a plugin's previous directory, so charter reports it and never deletes it."""
     try:
-        names = sorted(entry.name for entry in (base_dir / PLUGINS_DIR).iterdir())
+        names = sorted(
+            entry.name
+            for entry in (base_dir / PLUGINS_DIR).iterdir()
+            if entry.name.startswith(STAGING_PREFIX) and entry.is_dir()
+        )
     except OSError:
         return []
     return [
@@ -152,7 +156,7 @@ def leftover_staging(base_dir: Path) -> list[Diagnostic]:
             "Its `previous/` folder may hold the only copy of a plugin's previous directory. Check it, then delete "
             "the folder yourself; charter never deletes it.",
         )
-        for shown in (f"{PLUGINS_DIR}/{name}" for name in names if name.startswith(STAGING_PREFIX))
+        for shown in (f"{PLUGINS_DIR}/{name}" for name in names)
     ]
 
 

@@ -73,3 +73,11 @@ def test_without_a_plugins_folder_nothing_is_reported(charter, make_kb):
 
     assert charter("validate", cwd=base).stderr == ""
     assert charter("plugin", "list", cwd=base).stderr == ""
+
+
+def test_a_stray_file_named_like_a_staging_folder_is_not_a_leftover(charter, kb):
+    (kb / LEFTOVER).write_text("stray\n", encoding="utf-8")
+
+    result = charter("validate", cwd=kb)
+
+    assert CODE not in result.stderr
