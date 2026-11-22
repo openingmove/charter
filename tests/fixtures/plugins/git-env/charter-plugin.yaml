@@ -1,0 +1,5 @@
+charter_plugin: 1
+id: git-env
+version: 1.0.0
+description: "Records the git variables in its environment in git-env.json, in its working directory."
+run: ["uv", "run", "--script", "git_env.py"]

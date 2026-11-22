@@ -78,6 +78,25 @@ def test_plugin_runs_in_its_own_directory_and_receives_the_request(charter, kb):
     }
 
 
+def test_plugin_run_from_a_git_hook_gets_git_paths_made_absolute(charter, kb, monkeypatch):
+    # A commit hook runs at the top of the working tree and may set GIT_DIR and GIT_INDEX_FILE relative to it, but
+    # the plugin runs in its own directory, where those relative paths name nothing.
+    base = kb("  git-env:\n    source: tools/git-env\n", ["git-env"])
+    run_git(base, "init", "-q")
+    run_git(base, "add", "-A")
+    monkeypatch.setenv("GIT_DIR", ".git")
+    monkeypatch.setenv("GIT_INDEX_FILE", ".git/index")
+    monkeypatch.delenv("GIT_WORK_TREE", raising=False)
+
+    result = charter("validate", "--format", "json", cwd=base)
+
+    assert (result.exit_code, result.json()["diagnostics"]) == (0, [])
+    seen = json.loads((base / "tools" / "git-env" / "git-env.json").read_text(encoding="utf-8"))
+    assert os.path.isabs(seen["GIT_DIR"]) and os.path.samefile(seen["GIT_DIR"], base / ".git")
+    assert os.path.isabs(seen["GIT_INDEX_FILE"]) and os.path.samefile(seen["GIT_INDEX_FILE"], base / ".git" / "index")
+    assert os.path.samefile(seen["GIT_WORK_TREE"], base)
+
+
 def test_request_carries_the_day_the_run_is_judged_as_of(charter, kb, monkeypatch):
     base = kb("  probe:\n    source: ./tools/probe\n", ["probe"])
     monkeypatch.setenv("CHARTER_TODAY", "2024-03-05")

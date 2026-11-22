@@ -53,7 +53,7 @@ class _Git:
 
     def __init__(self, base_dir: Path):
         self.base_dir = base_dir
-        self.environment = _environment()
+        self.environment = environment()
 
     def run(self, *args: str, stdin: bytes = b"") -> bytes:
         finished = self._run(args, stdin)
@@ -582,9 +582,10 @@ def _run_git(args: Sequence[str], cwd: Path, stdin: bytes, environment: Mapping[
         raise GitUnavailable(f"git could not be run: {error.strerror or error}.") from None
 
 
-def _environment() -> dict[str, str]:
+def environment() -> dict[str, str]:
     """charter's environment, with git's paths made absolute: a commit hook runs at the top of the working tree
-    and may set them relative to it, but charter runs git from the directory holding charter.yaml."""
+    and may set them relative to it, but charter runs git from the directory holding charter.yaml, and plugins from
+    their own directories."""
     environment = dict(os.environ)
     for name in _PATH_VARIABLES:
         if environment.get(name):
