@@ -16,7 +16,7 @@ from charter.diagnostics import PLUGIN_FAILED, PLUGIN_MODIFIED, PLUGIN_SKIPPED_P
 from charter.files import contract_relative
 from charter.history import EditDelta
 from charter.index import Note, kinds_before
-from charter.lock import LOCK_FILENAME, symlink_reason
+from charter.lock import LOCK_FILENAME, SYMLINK_HINT, symlink_reason
 from charter.output import printable
 from charter.plugin import Plugin
 from charter.process import run_bounded
@@ -113,14 +113,18 @@ class PluginCheck:
         if plugin.unavailable is not None:
             what = f"could not be run: its files in `{plugin.source}` could not be written out ({plugin.unavailable})."
             return [self._failure(request, _Failed(what))]
-        # A link is reported instead of the hash mismatch it causes, in the same words whether it is in the
-        # working copy or in the index.
+        # Links are reported in one diagnostic, in the same words whether they are in the working copy or in the
+        # index. The hash leaves them out, so a mismatch is reported for any other change. A link that takes the place
+        # of a locked file is such a change too: the file is missing from the hash, so it also gives the mismatch.
+        reasons = []
         if plugin.links:
-            reasons = [f"`{plugin.source}` {symlink_reason(link)}" for link in plugin.links]
-        elif plugin.modified:
-            reasons = [f"the files in `{plugin.source}` no longer match the sha256 recorded for it in `{LOCK_FILENAME}`."]
-        else:
-            reasons = []
+            reasons.append((f"`{plugin.source}` {symlink_reason(plugin.links)}", SYMLINK_HINT))
+        if plugin.modified:
+            reasons.append((
+                f"the files in `{plugin.source}` no longer match the sha256 recorded for it in `{LOCK_FILENAME}`.",
+                f"Restore `{plugin.source}` from version control, or install the plugin again with "
+                "`charter plugin add`.",
+            ))
         return [
             Diagnostic(
                 request.contract.file,
@@ -128,10 +132,9 @@ class PluginCheck:
                 Severity.ERROR,
                 PLUGIN_MODIFIED,
                 f"Plugin `{self.id}` was not run: {reason}",
-                f"Restore `{plugin.source}` from version control, or install the plugin again with "
-                "`charter plugin add`.",
+                hint,
             )
-            for reason in reasons
+            for reason, hint in reasons
         ]
 
     def payload(self, request: CheckRequest) -> str:

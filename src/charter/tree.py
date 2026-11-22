@@ -3,12 +3,15 @@ content. Paths are in diagnostic form: POSIX, relative to the directory holding 
 
 import os
 import unicodedata
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from pathlib import Path, PurePosixPath
 from typing import Protocol
 
 # Version-control internals are never part of a knowledge base, even when root is the repository.
 _SKIPPED_DIRECTORIES = frozenset({".git"})
+# Never part of a plugin: version control, and the bytecode Python leaves beside modules it runs. The one list of
+# names a plugin's files leave out, for its content hash, its links and its copy alike.
+PLUGIN_IGNORED_NAMES = frozenset({".git", "__pycache__"})
 
 
 class Tree(Protocol):
@@ -102,10 +105,36 @@ class WorkingTree:
         return self.base_dir / path
 
     def symlinks(self, path: str) -> list[str]:
-        # Imported here: lock reads this module for `decode`.
-        from charter.lock import symlinks_in
-
         return symlinks_in(self.base_dir / path)
+
+
+def plugin_name(relative: str) -> str | None:
+    """The plugin-relative POSIX path `relative` in the one form charter compares plugin files in (Unicode NFC),
+    or None when a segment of it is in PLUGIN_IGNORED_NAMES."""
+    if not PLUGIN_IGNORED_NAMES.isdisjoint(relative.split("/")):
+        return None
+    return unicodedata.normalize("NFC", relative)
+
+
+def plugin_files(directory: Path) -> Iterator[tuple[str, Path]]:
+    """Each file and symbolic link in a plugin directory on disk, as its `plugin_name` and its path. Links are not
+    followed."""
+    for folder, folders, names in os.walk(directory):
+        here = Path(folder)
+        # os.walk lists a link to a directory among the folders but does not follow it.
+        links = [name for name in folders if (here / name).is_symlink()]
+        folders[:] = [name for name in folders if name not in PLUGIN_IGNORED_NAMES and name not in links]
+        # A git worktree's `.git` is a file.
+        for name in (*names, *links):
+            file = here / name
+            relative = plugin_name(file.relative_to(directory).as_posix())
+            if relative is not None:
+                yield relative, file
+
+
+def symlinks_in(directory: Path) -> list[str]:
+    """The `plugin_name`s of the symbolic links in a plugin directory on disk, sorted."""
+    return sorted(relative for relative, file in plugin_files(directory) if file.is_symlink())
 
 
 def exact_path(base: Path, relative: str, *, any_form: bool = False) -> Path | None:
