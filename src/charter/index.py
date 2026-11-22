@@ -11,7 +11,7 @@ from charter.contract import Contract
 from charter.diagnostics import Diagnostic, Severity
 from charter.links import Link, RawLink, Resolver, body_links, field_link
 from charter.tags import Tag, note_tags
-from charter.tree import decode
+from charter.tree import Tree, decode
 
 UNREADABLE = "index/unreadable"
 INVALID_FRONTMATTER = "index/invalid-frontmatter"
@@ -209,6 +209,25 @@ def _aliases(frontmatter: Mapping[str, Any]) -> list[str]:
 def frontmatter_of(text: str) -> dict[str, Any]:
     """The frontmatter of a note's `text`; empty when it has none, or none that parses."""
     return frontmatter_and_lines(text)[0]
+
+
+def kinds_before(contract: Contract, before: Tree, leaving_out: frozenset[str] = frozenset()) -> frozenset[str]:
+    """The kinds of the notes in `before`, other than those at `leaving_out`: the notes the knowledge base would
+    index."""
+    notes = [
+        path
+        for path in before.files(contract.root_path)
+        if path.endswith(".md") and not contract.ignores(path) and path not in leaving_out
+    ]
+    kinds = set()
+    for content in before.read(notes).values():
+        try:
+            kind = contract.kind_of(frontmatter_of(decode(content)))
+        except UnicodeDecodeError:
+            continue
+        if kind is not None:
+            kinds.add(kind.name)
+    return frozenset(kinds)
 
 
 def frontmatter_and_lines(text: str) -> tuple[dict[str, Any], dict[str, int]]:

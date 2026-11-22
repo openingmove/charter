@@ -26,7 +26,7 @@ from charter.history import History
 from charter.index import Note
 from charter.links import Resolver
 from charter.profiles import Finding, Profile
-from charter.tree import Tree, decode
+from charter.tree import Tree
 
 _PATHS = PathsCheck()
 _UPDATED_DATE = UpdatedDateCheck()
@@ -248,7 +248,7 @@ def _check_request(
         selected = frozenset(judged(path) for path in paths)
     kinds = touched_kinds(contract, built.notes, selected)
     if isinstance(targets, Change):
-        kinds |= _kinds_before(contract, targets.before)
+        kinds |= index.kinds_before(contract, targets.before)
     request = CheckRequest(
         contract=contract,
         notes=built.notes,
@@ -269,17 +269,3 @@ def touched_kinds(contract: Contract, notes: Iterable[Note], targets: frozenset[
         return frozenset(contract.kinds)
     kinds = (contract.kind_of(note.frontmatter) for note in notes if note.path in targets)
     return frozenset(kind.name for kind in kinds if kind is not None)
-
-
-def _kinds_before(contract: Contract, before: Tree) -> frozenset[str]:
-    """The kinds of the notes in `before`: those the knowledge base would index."""
-    notes = [path for path in before.files(contract.root_path) if path.endswith(".md") and not contract.ignores(path)]
-    kinds = set()
-    for content in before.read(notes).values():
-        try:
-            kind = contract.kind_of(index.frontmatter_of(decode(content)))
-        except UnicodeDecodeError:
-            continue
-        if kind is not None:
-            kinds.add(kind.name)
-    return frozenset(kinds)
