@@ -15,7 +15,7 @@ from charter.checks import CheckRequest
 from charter.diagnostics import PLUGIN_FAILED, PLUGIN_MODIFIED, PLUGIN_SKIPPED_PATH, Diagnostic, Severity
 from charter.files import contract_relative
 from charter.history import EditDelta
-from charter.index import Note
+from charter.index import Note, kinds_before
 from charter.lock import LOCK_FILENAME, symlink_reason
 from charter.output import printable
 from charter.plugin import Plugin
@@ -76,10 +76,10 @@ class PluginCheck:
         if request.per_edit and not plugin.hook:
             return []
         if plugin.triggers is not None:
-            # A trigger sees only the targets the plugin would be sent, and the kinds of those, so a glob or a kind
-            # that matches nothing but paths that are not valid UTF-8 does not start the plugin with no targets. The
-            # user still learns those paths were not checked: each one the trigger matches is reported as
-            # `plugin/skipped-path`, unless the plugin could not have run anyway.
+            # A trigger sees only the targets the plugin would be sent, and no kind that only the other targets
+            # bring, so a glob or a kind that matches nothing but paths that are not valid UTF-8 does not start the
+            # plugin with no targets. The user still learns those paths were not checked: each one the trigger
+            # matches is reported as `plugin/skipped-path`, unless the plugin could not have run anyway.
             targets, skipped = _split_utf8([note.path for note in request.target_notes()])
             if not plugin.triggers.fire(_sent_kinds(request, targets, skipped), [_local(request, p) for p in targets]):
                 matched = [
@@ -87,7 +87,9 @@ class PluginCheck:
                     for path in sorted(skipped)
                     if plugin.triggers.fire(_kinds_of(request, [path]), [_local(request, path)])
                 ]
-                return (self._broken(request) or [self._skipped(path) for path in matched]) if matched else []
+                if not matched:
+                    return []
+                return self._broken(request) or [self._skipped(path) for path in matched]
         return self.invoke(request)
 
     def invoke(self, request: CheckRequest) -> list[Diagnostic]:
@@ -301,10 +303,15 @@ def _kinds_of(request: CheckRequest, paths: list[str]) -> frozenset[str]:
 
 
 def _sent_kinds(request: CheckRequest, targets: list[str], skipped: list[str]) -> frozenset[str]:
-    """The kinds the run touches, less those only the skipped targets have: the plugin is not sent those notes."""
+    """The kinds the run touches, less each kind that only the skipped targets bring: no target the plugin is sent
+    has it, and, where the run knows the earlier version, no note other than the skipped ones had it before the
+    change. A kind a skipped note had before the change is left out too."""
     if not skipped or request.contract.file in request.targets:
         return request.kinds
-    return request.kinds - (_kinds_of(request, skipped) - _kinds_of(request, targets))
+    kept = _kinds_of(request, targets)
+    if isinstance(request.history, EditDelta):
+        kept |= kinds_before(request.contract, request.history.before, frozenset(skipped))
+    return request.kinds - (_kinds_of(request, skipped) - kept)
 
 
 def _before(request: CheckRequest) -> tuple[dict[str, Any], set[str]]:

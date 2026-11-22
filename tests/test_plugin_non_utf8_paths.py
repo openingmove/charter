@@ -222,3 +222,21 @@ def test_a_modified_plugin_whose_glob_matches_only_the_skipped_path_reports_modi
 
     assert result.stderr == ""
     assert ("charter.yaml", "error", "plugin/modified") in _by_code(result)
+
+
+def test_a_kinds_trigger_still_starts_the_plugin_for_a_deleted_note_of_the_skipped_paths_kind(charter, make_kb):
+    base = plugin_kb(make_kb)(TODO_FREE, ["todo-free"], notes={})
+    # A plugin that cannot start: the run reports `plugin/failed` only when the trigger starts it.
+    rewrite_manifest(base / "tools" / "todo-free", triggers="{kinds: [entry]}", run='["no-such-program-charter"]')
+    run_git(base, "init", "-q", "--initial-branch=main")
+    run_git(base, "add", "-A")
+    git_tree_with_paths(base, [GOOD_NAME], NOTE)
+    run_git(base, "commit", "-q", "-m", "base")
+    # The deletion brings the kind `entry` too: the skipped note is not the only one that has it.
+    run_git(base, "rm", "-q", "--cached", os.fsdecode(GOOD_NAME))
+    git_tree_with_paths(base, [BAD_NAME], NOTE)
+
+    result = charter("validate", "--staged", "--profile", "ci", "--format", "json", cwd=base)
+
+    assert result.stderr == ""
+    assert "plugin/failed" in [code for _, _, code in _by_code(result)]
