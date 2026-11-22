@@ -665,6 +665,22 @@ def test_dev_installs_a_working_copy_and_refreshes_it_when_added_again(charter, 
     assert charter("validate", "--format", "json", cwd=base).exit_code == 0
 
 
+def test_dev_copies_names_that_differ_from_an_ignored_name_only_in_letter_case(charter, kb, tmp_path_factory):
+    # Ignored names match in exact letter case, also on Windows, where fnmatch would fold case.
+    working = tmp_path_factory.mktemp("work") / "todo-free"
+    shutil.copytree(FIXTURES / "plugins" / "todo-free", working)
+    write_files(working, {"THUMBS.DB": b"\0", "Venv/pyvenv.cfg": "home = /usr/bin\n"})
+    base = kb()
+
+    result = charter("plugin", "add", "--dev", str(working), cwd=base)
+
+    assert result.exit_code == 0, result.stdout
+    installed = base / INSTALLED
+    assert sorted(p.name for p in installed.iterdir()) == ["THUMBS.DB", "Venv", "charter-plugin.yaml", "check.py"]
+    assert (installed / "Venv" / "pyvenv.cfg").is_file()
+    assert _lock(base)["plugins"]["todo-free"]["sha256"] != TODO_FREE_SHA256
+
+
 def test_dev_path_must_be_a_directory(charter, kb, tmp_path_factory):
     missing = tmp_path_factory.mktemp("work") / "nothing"
 

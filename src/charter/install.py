@@ -342,7 +342,7 @@ def _commit(
         locked = {other: entry for other, entry in settings.locked.items() if other != plugin_id}
         with writing(relative, WRITE_FAILED):
             if copy is not None:
-                shutil.copytree(copy.source, new, ignore=shutil.ignore_patterns(*PLUGIN_IGNORED_NAMES))
+                shutil.copytree(copy.source, new, ignore=_ignored_names)
                 sha256 = content_hash(new)
                 # The source was checked for links, so the copy holds none and has a hash.
                 assert sha256 is not None
@@ -377,6 +377,12 @@ def _commit(
                 failure.add_note(f"{warning.message} {warning.hint}")
         raise
     return left_behind(remove_tree(staging), settings.base_dir)
+
+
+def _ignored_names(_directory: str, names: list[str]) -> list[str]:
+    """The names in one directory that a plugin's copy leaves out, matched in exact letter case. Not
+    `shutil.ignore_patterns`: its fnmatch folds letter case on Windows, unlike the content hash and link listing."""
+    return [name for name in names if name in PLUGIN_IGNORED_NAMES]
 
 
 def _remove_if_empty(directories: list[Path]) -> None:
