@@ -21,13 +21,13 @@ from charter.files import append_lines, left_behind, remove_tree, replace_file, 
 from charter.lock import (
     LOCK_FILENAME,
     PLUGINS_DIR,
+    SYMLINK_HINT,
     DevSource,
     GitSource,
     Locked,
     content_hash,
     is_vendored,
     lock_bytes,
-    SYMLINK_HINT,
     symlink_reason,
     vendored_directory,
     write_lock,
@@ -592,7 +592,9 @@ def _install(
 
 def _is_python(plugin: Path) -> bool:
     return any(
-        file.is_file() and file.suffix == ".py" and not PLUGIN_IGNORED_NAMES.intersection(file.relative_to(plugin).parts)
+        file.is_file()
+        and file.suffix == ".py"
+        and not PLUGIN_IGNORED_NAMES.intersection(file.relative_to(plugin).parts)
         for file in plugin.rglob("*.py")
     )
 

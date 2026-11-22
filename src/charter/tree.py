@@ -123,7 +123,7 @@ def plugin_files(directory: Path) -> Iterator[tuple[str, Path]]:
         here = Path(folder)
         # os.walk lists a link to a directory among the folders but does not follow it.
         links = [name for name in folders if (here / name).is_symlink()]
-        folders[:] = [name for name in folders if plugin_name(name) is not None and name not in links]
+        folders[:] = [name for name in folders if name not in PLUGIN_IGNORED_NAMES and name not in links]
         # A git worktree's `.git` is a file.
         for name in (*names, *links):
             file = here / name

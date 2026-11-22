@@ -538,6 +538,24 @@ def test_a_link_and_an_edited_file_in_a_working_copy_plugin_are_both_reported(ch
     assert "no longer match the sha256" in mismatch
 
 
+def test_a_link_that_takes_the_place_of_a_locked_file_is_also_a_hash_mismatch(charter, make_kb):
+    kb = _vendored(charter, make_kb)
+    vendored = kb / VENDORED
+    vendored.unlink()
+    try:
+        vendored.symlink_to("charter-plugin.yaml")
+    except (OSError, NotImplementedError):
+        pytest.skip("this machine cannot create symbolic links")
+
+    result = charter("validate", "--format", "json", cwd=kb)
+
+    assert result.exit_code == 3
+    [(links, link_hint), (mismatch, _)] = _plugin_diagnostics(result)
+    assert "`check.py`" in links
+    assert link_hint == LINK_HINT
+    assert "no longer match the sha256" in mismatch
+
+
 def test_a_vendored_plugin_without_links_is_unchanged_by_the_link_check(charter, make_kb):
     kb = _vendored(charter, make_kb)
     _stage(kb, {"notes/a.md": PLAN + "\nMore.\n"})

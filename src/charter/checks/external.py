@@ -114,7 +114,8 @@ class PluginCheck:
             what = f"could not be run: its files in `{plugin.source}` could not be written out ({plugin.unavailable})."
             return [self._failure(request, _Failed(what))]
         # Links are reported in one diagnostic, in the same words whether they are in the working copy or in the
-        # index. The hash leaves them out, so a mismatch is reported only for some other change.
+        # index. The hash leaves them out, so a mismatch is reported for any other change. A link that takes the place
+        # of a locked file is such a change too: the file is missing from the hash, so it also gives the mismatch.
         reasons = []
         if plugin.links:
             reasons.append((f"`{plugin.source}` {symlink_reason(plugin.links)}", SYMLINK_HINT))
