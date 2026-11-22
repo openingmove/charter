@@ -245,13 +245,18 @@ class PluginCheck:
     def _spawn(self, payload: bytes) -> tuple[bytes, bytes]:
         plugin = self.plugin
         try:
+            # Finding the working tree for a GIT_DIR alone runs git, which may fail to start.
+            environment = git.environment()
+        except git.GitError as error:
+            raise _Failed(f"could not be given its environment: {error.message}") from None
+        try:
             finished = run_bounded(
                 plugin.run,
                 plugin.directory,
                 payload,
                 timeout=plugin.timeout_ms / 1000,
                 limit=_OUTPUT_LIMIT,
-                env=git.environment(),
+                env=environment,
             )
         except OSError as error:
             raise _Failed(f"could not start `{plugin.run[0]}`: {error.strerror or error}.") from None

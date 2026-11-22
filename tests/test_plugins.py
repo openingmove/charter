@@ -4,6 +4,7 @@ import shutil
 import time
 
 import pytest
+from charter import git as git_module
 from conftest import FIXTURES, commit_files, run_git, write_files
 from plugin_support import (
     KINDS_TWO,
@@ -234,6 +235,27 @@ def test_plugin_whose_command_cannot_start_fails(charter, kb):
     assert result.exit_code == 3
     assert _diagnostics(result) == [("charter.yaml", 7, "error", "plugin/failed")]
     assert "`charter-test-no-such-program`" in result.json()["diagnostics"][0]["message"]
+
+
+def test_plugin_fails_when_git_cannot_start_to_find_the_working_tree(charter, kb, monkeypatch):
+    # With GIT_DIR set and GIT_WORK_TREE not, charter asks git for the working tree before it starts the plugin.
+    base = kb("  probe:\n    source: tools/probe\n", ["probe"])
+    monkeypatch.setenv("GIT_DIR", ".git")
+    monkeypatch.delenv("GIT_WORK_TREE", raising=False)
+    started = git_module.run_bounded
+
+    def no_git(command, *args, **kwargs):
+        if command[0] == "git":
+            raise FileNotFoundError(2, "No such file or directory")
+        return started(command, *args, **kwargs)
+
+    monkeypatch.setattr(git_module, "run_bounded", no_git)
+
+    result = charter("validate", "--format", "json", cwd=base)
+
+    assert result.exit_code == 3
+    assert _diagnostics(result) == [("charter.yaml", 7, "error", "plugin/failed")]
+    assert "git could not be run" in result.json()["diagnostics"][0]["message"]
 
 
 def test_plugin_failure_exits_three_even_beside_other_errors_and_in_every_format(charter, kb):
