@@ -2,6 +2,7 @@
 content. Paths are in diagnostic form: POSIX, relative to the directory holding charter.yaml."""
 
 import os
+import unicodedata
 from collections.abc import Iterable
 from pathlib import Path, PurePosixPath
 from typing import Protocol
@@ -88,16 +89,11 @@ class WorkingTree:
         return (self.base_dir / path).exists()
 
     def is_exact_file(self, path: str) -> bool:
-        # A case-insensitive file system answers `is_file` for a wrong-case path; a listing of each parent does not.
-        current = self.base_dir
-        for segment in PurePosixPath(path).parts:
-            try:
-                if segment not in os.listdir(current):
-                    return False
-            except OSError:
-                return False
-            current = current / segment
-        return current.is_file()
+        try:
+            found = exact_path(self.base_dir, path)
+        except OSError:
+            return False
+        return found is not None and found.is_file()
 
     def is_directory(self, path: str) -> bool:
         return (self.base_dir / path).is_dir()
@@ -110,6 +106,26 @@ class WorkingTree:
         from charter.lock import symlinks_in
 
         return symlinks_in(self.base_dir / path)
+
+
+def exact_path(base: Path, relative: str, *, any_form: bool = False) -> Path | None:
+    """The path of `relative` below `base` as the file system spells it, or None when a segment matches no name in
+    its directory in letter case. With `any_form`, a segment also matches a name that differs only in Unicode form
+    (NFC or NFD), as git reports names on macOS; an exact name wins. Raises OSError when a directory cannot be
+    listed."""
+    # A case-insensitive file system (macOS, Windows) opens a wrong-case path; a listing of each parent does not.
+    current = base
+    for segment in PurePosixPath(relative).parts:
+        names = os.listdir(current)
+        if segment in names:
+            current = current / segment
+            continue
+        wanted = unicodedata.normalize("NFC", segment)
+        matches = [name for name in names if any_form and unicodedata.normalize("NFC", name) == wanted]
+        if not matches:
+            return None
+        current = current / matches[0]
+    return current
 
 
 def decode(data: bytes, encoding: str = "utf-8-sig") -> str:
