@@ -22,7 +22,7 @@ from charter.contract import (
 from charter.diagnostics import EXIT_CLEAN, EXIT_ERRORS, Diagnostic, Refused, Severity, code_list, exit_code
 from charter.files import left_behind
 from charter.history import EditDelta, History, NoHistory
-from charter.lock import LOCK_FILENAME, PLUGINS_DIR
+from charter.lock import LOCK_FILENAME, PLUGINS_DIR, leftover_staging
 from charter.output import FORMATS, render, render_draft
 from charter.profiles import Profile, UnknownProfile, is_builtin_profile, profile_name, select_profile
 from charter.scaffold import create
@@ -506,6 +506,7 @@ def _validate(args: argparse.Namespace) -> int:
     with _prepared_run(args) as run:
         if isinstance(run, list):
             return _usage_error(run, args.format)
+        _report_left_behind(leftover_staging(run.contract.base_dir))
         if message is not None:
             try:
                 trailers = git.trailers(run.contract.base_dir, message)
@@ -639,8 +640,8 @@ def _close(tree: "git.Change | git.GitTree") -> None:
 
 
 def _report_left_behind(warnings: Iterable[Diagnostic]) -> None:
-    """Cleanup that could not finish is a warning on stderr, so the command's output and exit code stay as they
-    were."""
+    """Cleanup that could not finish, now or in an earlier run, is a warning on stderr, so the command's output and
+    exit code stay as they were."""
     if warnings := list(warnings):
         render(warnings, "text", sys.stderr)
 
@@ -762,6 +763,7 @@ def _plugin_list(args: argparse.Namespace) -> int:
         settings = plugin_settings_at(Path(args.config))
     except ContractError as error:
         return _usage_error(error.diagnostics, args.format)
+    _report_left_behind(leftover_staging(settings.base_dir))
     plugins = inventory.listing(settings)
     if args.format == "json":
         sys.stdout.write(inventory.to_json({"plugins": plugins}))

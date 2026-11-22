@@ -21,6 +21,7 @@ from charter.files import append_lines, left_behind, remove_tree, replace_file, 
 from charter.lock import (
     LOCK_FILENAME,
     PLUGINS_DIR,
+    STAGING_PREFIX,
     SYMLINK_HINT,
     DevSource,
     GitSource,
@@ -289,7 +290,7 @@ def _commit(
     created = [d for d in (target.parent, target.parent.parent) if not d.exists()]
     with writing(relative, WRITE_FAILED):
         target.parent.mkdir(parents=True, exist_ok=True)
-        staging = Path(tempfile.mkdtemp(prefix=".staging-", dir=target.parent))
+        staging = Path(tempfile.mkdtemp(prefix=STAGING_PREFIX, dir=target.parent))
     new, previous = staging / "new", staging / "previous"
     kept = f"{PLUGINS_DIR}/{staging.name}/{previous.name}"
     existed = os.path.lexists(target)
