@@ -12,6 +12,7 @@ Each release of charter has a section here, newest first. The section for a vers
 
 ### Fixed
 
+- A plugin's manifest and `docs` file names now match in letter case in every `validate` mode, as they already did under `--range`. On a case-insensitive file system (macOS, Windows), `docs: rules.md` found a file `RULES.md` in a plain or `--staged` run. It is now `contract/invalid`, as under `--range`. See [Plugins](docs/guide/Plugins.md).
 - The contract guard no longer lets an `mv` of a guarded `charter.yaml` through when charter cannot check the target, for example an overlong name or the home folder of an unknown user (`~nosuchuser`).
 - The contract guard now fails closed. A `charter.yaml` whose guard charter cannot read, such as YAML nested too deep to parse, counts as guarded. A call that names `charter.yaml` but that charter cannot split or resolve is denied, with a reason that says charter could not check it. An error on one file no longer hides a guarded contract elsewhere in the same command. See [The contract guard](docs/guide/Contract-guard.md).
 - The contract guard no longer lets a write to a guarded `charter.yaml` through when it cannot check for the session's marker, for example because the state folder cannot be read or the session id cannot be encoded. It denies the call, with a reason that names the error. A call that writes no guarded contract is never blocked by a file system error. See [The contract guard](docs/guide/Contract-guard.md).

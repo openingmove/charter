@@ -489,3 +489,45 @@ def test_a_vendored_plugin_without_links_is_unchanged_by_the_link_check(charter,
     _stage(kb, {"notes/a.md": PLAN + "\nMore.\n"})
 
     assert _codes(_staged(charter, kb)) == []
+
+
+DOCS_MANIFEST = 'charter_plugin: 1\nid: todo-free\nversion: 1.2.0\nrun: ["python", "check.py"]\ndocs: rules.md\n'
+
+
+@pytest.mark.parametrize(
+    ("renamed", "problem"),
+    [
+        (
+            {"charter-plugin.yaml": ("charter-plugin.yaml", DOCS_MANIFEST), "RULES.md": (None, "# Rules\n")},
+            "`docs` file `rules.md` could not be read",
+        ),
+        (
+            {"CHARTER-PLUGIN.YAML": ("charter-plugin.yaml", DOCS_MANIFEST), "rules.md": (None, "# Rules\n")},
+            "plugin manifest `tools/todo-free/charter-plugin.yaml`: the file could not be read",
+        ),
+    ],
+    ids=["docs", "manifest"],
+)
+def test_a_plugin_file_named_in_another_letter_case_is_refused_in_every_mode(charter, make_kb, renamed, problem):
+    # A file system that ignores case finds `RULES.md` for `rules.md`; git, and so `--range`, never does.
+    kb = _plugin_kb(make_kb)
+    base = run_git(kb, "rev-parse", "HEAD").strip()
+    plugin = kb / "tools" / "todo-free"
+    for name, (replaced, text) in renamed.items():
+        if replaced is not None:
+            # Why: with `core.ignorecase`, `git add` keeps the index entry's old spelling over a case-only rename.
+            run_git(kb, "rm", "-q", "--cached", f"tools/todo-free/{replaced}")
+            (plugin / replaced).unlink()
+        (plugin / name).write_text(text)
+    run_git(kb, "add", "-A")
+
+    from_index = _staged(charter, kb)
+    from_working_copy = charter("validate", "--format", "json", cwd=kb)
+    run_git(kb, "commit", "-q", "-m", "Rename a plugin file")
+    from_range = charter("validate", f"--range={base}..HEAD", "--format", "json", cwd=kb)
+
+    for result in (from_index, from_working_copy, from_range):
+        assert result.exit_code == 2
+        diagnostics = result.json()["diagnostics"]
+        assert [(d["path"], d["code"]) for d in diagnostics] == [("charter.yaml", "contract/invalid")]
+        assert problem in diagnostics[0]["message"]

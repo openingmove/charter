@@ -1,11 +1,12 @@
 """External plugins: loading each `checks.<id>.source` directory's manifest and the check's parameters."""
 
 import operator
+import os
 import re
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from functools import cached_property
-from pathlib import Path, PureWindowsPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Literal
 
 import yaml
@@ -306,7 +307,18 @@ _Reader = Callable[[str], str]
 
 
 def _disk_reader(directory: Path) -> _Reader:
-    return lambda relative: (directory / relative).read_text(encoding="utf-8-sig")
+    """Reads the files of `directory` from disk, by their exact letter case, as git and `--range` name them."""
+
+    def read(relative: str) -> str:
+        # Why: macOS and Windows file systems ignore case, so `rules.md` would open `RULES.md` there and nowhere else.
+        parent = directory
+        for segment in PurePosixPath(relative).parts:
+            if segment not in os.listdir(parent):
+                raise FileNotFoundError(str(parent / segment))
+            parent = parent / segment
+        return parent.read_text(encoding="utf-8-sig")
+
+    return read
 
 
 def _in_source(source: str, relative: str) -> str:
