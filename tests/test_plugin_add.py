@@ -473,6 +473,30 @@ def test_bytecode_beside_a_locked_plugin_is_not_a_modification(charter, kb, plug
     assert (result.exit_code, _diagnostics(result)) == (1, TODO_FOUND)
 
 
+@pytest.mark.parametrize(
+    "junk",
+    [
+        ".DS_Store",
+        "Thumbs.db",
+        "desktop.ini",
+        ".pytest_cache/x",
+        ".mypy_cache/x",
+        ".ruff_cache/x",
+        ".venv/x",
+        "venv/x",
+        "sub/.DS_Store",
+    ],
+)
+def test_os_and_tool_files_in_a_locked_plugin_are_not_a_modification(charter, kb, plugin_repo, junk):
+    base = kb()
+    charter("plugin", "add", "--from", _from(plugin_repo()), cwd=base)
+    write_files(base / INSTALLED, {junk: b"\0junk"})
+
+    result = charter("validate", "--format", "json", cwd=base)
+
+    assert (result.exit_code, _diagnostics(result)) == (1, TODO_FOUND)
+
+
 def test_symlink_in_an_installed_plugin_is_a_modification(charter, kb, plugin_repo):
     base = kb()
     charter("plugin", "add", "--from", _from(plugin_repo()), cwd=base)
@@ -607,7 +631,16 @@ def test_content_hash_compares_file_names_in_one_unicode_form(charter, make_kb, 
 def test_dev_installs_a_working_copy_and_refreshes_it_when_added_again(charter, kb, tmp_path_factory):
     working = tmp_path_factory.mktemp("work") / "todo-free"
     shutil.copytree(FIXTURES / "plugins" / "todo-free", working)
-    write_files(working, {".git/HEAD": "ref: refs/heads/main\n", "__pycache__/x.pyc": b"\0"})
+    write_files(
+        working,
+        {
+            ".git/HEAD": "ref: refs/heads/main\n",
+            "__pycache__/x.pyc": b"\0",
+            ".venv/pyvenv.cfg": "home = /usr/bin\n",
+            ".pytest_cache/README.md": "cache\n",
+            ".DS_Store": b"\0",
+        },
+    )
     base = kb()
 
     first = charter("plugin", "add", "--dev", str(working), cwd=base)
