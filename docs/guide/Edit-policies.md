@@ -23,6 +23,7 @@ Because the trailer lives in the commit message, edit policies are judged at git
 A `Charter-Allow` trailer cannot name every path. For these paths, the trailer allows nothing: charter reports the original violation and an `override/unused` warning for the trailer. To make the edit, rename the file first.
 
 - A path that ends in whitespace, for example a space, a tab, a line separator (U+2028), a next-line character (U+0085), a form feed or a vertical tab. charter removes every whitespace character from the end of the path, so the trailer names a different path.
+- A path that is not valid UTF-8. charter shows each such byte as `\xNN` (see [Paths that are not valid UTF-8](Commands.md#validating)), but that escape is for reading only and is not the file's real name. charter reads a trailer as UTF-8 text, so the trailer cannot hold the real name either.
 
 ## The `updated-date` check
 

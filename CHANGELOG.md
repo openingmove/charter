@@ -28,6 +28,7 @@ Each release of charter has a section here, newest first. The section for a vers
 ### Documentation
 
 - [Edit policies](docs/guide/Edit-policies.md#paths-a-trailer-cannot-allow) lists the paths a `Charter-Allow` trailer cannot allow. A path that ends in whitespace is one, for example a space, a tab, U+2028, U+0085, a form feed or a vertical tab: the trailer is `override/unused` and the violation stays. Rename the file to make the edit.
+- [Validating](docs/guide/Commands.md#validating) explains how output shows a path that is not valid UTF-8: each such byte is written as `\xNN`. The escape is for reading only, and diagnostics sort by the escaped path. A `Charter-Allow` trailer cannot allow such a path, and [Edit policies](docs/guide/Edit-policies.md#paths-a-trailer-cannot-allow) now lists it: rename the file.
 - [The contract guard](docs/guide/Contract-guard.md) names the marker file it writes for a session: `sessions/<sha256 of the session id>.json` in the per-user state folder.
 
 - The install command names `@main`, the branch that holds the latest release. [Install](docs/guide/Install.md) shows how to pin one release instead.
