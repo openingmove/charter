@@ -98,6 +98,10 @@ jobs:
 
 Give `ref` the same tag as `uses`. `uses` picks the action's own files; `ref` picks the charter it installs, and without it that is `main`. Inputs and the commit range: see [GitHub Action](docs/guide/GitHub-Action.md).
 
+## Git hooks
+
+charter ships two hooks for [pre-commit](https://pre-commit.com): `charter` (pre-commit stage) and `charter-commit-msg` (commit-msg stage). Install both: the `charter` hook passes `--commit-msg-installed`, so it leaves edit policies and `protected-region` to `charter-commit-msg`, so without it those checks never run. Setup, and plain git hooks without pre-commit: see [Git hooks](docs/guide/Git-hooks.md).
+
 ## Skills
 
 Three skills cover the life of a contract: Establish writes the first contract, Migrate brings existing files into line with it, and Evolve changes it. Each one is started by you with a slash command. See [Skills](docs/guide/Skills.md).

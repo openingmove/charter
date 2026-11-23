@@ -28,6 +28,7 @@ from charter.profiles import Profile, UnknownProfile, is_builtin_profile, profil
 from charter.scaffold import create
 from charter.validate import (
     HISTORY_CHECKS,
+    Deferral,
     Targets,
     commit_findings,
     contract_at,
@@ -532,12 +533,17 @@ def _validate(args: argparse.Namespace) -> int:
                 today=run.today,
                 per_edit=args.file is not None,
                 history=run.history,
-                # git's pre-commit stage: edit policies wait for the message, at commit-msg.
-                overridable_checks=not args.staged,
-                announce_deferred=not args.commit_msg_installed,
+                deferral=_deferral(args),
             )
     render(diagnostics, args.format, sys.stdout, run.profile.name)
     return exit_code(diagnostics)
+
+
+def _deferral(args: argparse.Namespace) -> Deferral:
+    """git's pre-commit stage (`--staged`) leaves edit policies to the commit-msg stage, where the message is."""
+    if not args.staged:
+        return Deferral.JUDGE
+    return Deferral.SILENT if args.commit_msg_installed else Deferral.ANNOUNCE
 
 
 def _validate_range(args: argparse.Namespace) -> int:

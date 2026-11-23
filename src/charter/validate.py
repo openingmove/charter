@@ -3,6 +3,7 @@
 import datetime
 import unicodedata
 from collections.abc import Iterable, Mapping
+from enum import Enum
 from pathlib import Path
 
 from charter import index, overrides
@@ -79,6 +80,18 @@ def plugin_settings_at(config: Path) -> PluginSettings:
 Targets = frozenset[str] | Change | None
 
 
+class Deferral(Enum):
+    """When a run judges the edits of `OVERRIDABLE_CHECKS`, whose violations a commit-message trailer may allow."""
+
+    # Judge them in this run.
+    JUDGE = "judge"
+    # Leave them to git's commit-msg stage, and say so with an info each (git's pre-commit stage).
+    ANNOUNCE = "announce"
+    # Leave them to git's commit-msg stage without a word: a commit-msg hook is installed, so the info would only
+    # repeat what that hook is about to do.
+    SILENT = "silent"
+
+
 def validate(
     contract: Contract,
     targets: Targets,
@@ -89,26 +102,23 @@ def validate(
     pending: Mapping[str, str] | None = None,
     per_edit: bool = False,
     history: History = None,
-    overridable_checks: bool = True,
-    announce_deferred: bool = True,
+    deferral: Deferral = Deferral.JUDGE,
 ) -> list[Diagnostic]:
     """Diagnostics for `targets` (diagnostic-form paths), with `pending` notes in the index, as of `today`. For a
     change, the kinds its modified and deleted notes had before it count as touched too.
 
     `per_edit` marks a run that checks one edit as it happens (see `CheckRequest.per_edit`); `history` is what
-    the run's change did to existing files (see `CheckRequest.history`). Without `overridable_checks` (git's
-    pre-commit stage) the judgements of `OVERRIDABLE_CHECKS` are left to `overridable_findings`, at the
-    commit-msg stage, and say so with an info each unless `announce_deferred` is off (a commit-msg hook is
-    installed, so the note would only repeat what that hook is about to do).
+    the run's change did to existing files (see `CheckRequest.history`). `deferral` says whether the judgements of
+    `OVERRIDABLE_CHECKS` are made here or left to `overridable_findings`, at the commit-msg stage.
     """
     built, request = _check_request(contract, targets, pending, per_edit=per_edit, history=history, today=today)
     findings = [Finding(d) for d in built.diagnostics if request.whole or d.path in request.targets]
     for check in (*BUILTIN_CHECKS, *map(PluginCheck, contract.plugins.values())):
         if contract.check_config(check.id).enabled:
             findings.extend(_findings(contract, check.id, check.run(request)))
-    if overridable_checks:
+    if deferral is Deferral.JUDGE:
         findings.extend(_overridable_findings(request))
-    elif announce_deferred:
+    elif deferral is Deferral.ANNOUNCE:
         for overridable in judging_edits(contract):
             findings.extend(_findings(contract, overridable.id, [overridable.deferred(contract)]))
     return profile.apply(findings, strict=strict)
