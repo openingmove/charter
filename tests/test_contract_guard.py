@@ -395,10 +395,18 @@ def test_an_error_in_a_command_that_names_no_contract_never_blocks(hook, kb):
     crashed(bash(hook, kb.parent, "cd ~nosuchuser-charter-test; ls"))
 
 
-def test_a_deeply_nested_event_never_blocks(kb, capsys, monkeypatch):
+def test_a_deeply_nested_event_never_blocks(kb, capsys, monkeypatch, tmp_path):
+    monkeypatch.setenv(guard.STATE_VARIABLE, str(tmp_path / "state"))
     data = b"[" * 100_000 + b"]" * 100_000
 
-    crashed(run_hook(capsys, monkeypatch, ["pre-tool-use"], data, kb))
+    result = run_hook(capsys, monkeypatch, ["pre-tool-use"], data, kb)
+
+    # Python 3.13 and earlier cannot parse this nesting, so the hook crashes; Python 3.14 parses it,
+    # finds no tool call in a list, and stays silent. Either way the call is never blocked.
+    if result.exit_code == 1:
+        crashed(result)
+    else:
+        assert allowed(result)
 
 
 def deeply_nested(path):
