@@ -342,8 +342,10 @@ def test_plugin_from_git_holding_a_symlink_is_refused(charter, kb, plugin_repo):
         ({"charter-plugin.yaml": "charter_plugin: 1\nid: ../x\nversion: '1'\nrun: [python, x.py]\n"}, "`../x`"),
         ({"charter-plugin.yaml": "charter_plugin: 1\nid: schema\nversion: '1'\nrun: [python, x.py]\n"}, "built-in"),
         ({"charter-plugin.yaml": "charter_plugin: 1\nid: plugin\nversion: '1'\nrun: [python, x.py]\n"}, "reserved"),
+        # Why: a case-insensitive file system would open this for `charter-plugin.yaml`; git never does.
+        ({"CHARTER-PLUGIN.YAML": "charter_plugin: 1\nid: x\nversion: '1'\nrun: [python, x.py]\n"}, "could not be read"),
     ],
-    ids=["no-manifest", "shell", "invalid", "unsafe-id", "builtin-id", "reserved-id"],
+    ids=["no-manifest", "shell", "invalid", "unsafe-id", "builtin-id", "reserved-id", "wrong-case-manifest"],
 )
 def test_plugin_with_a_bad_manifest_is_refused(charter, kb, plugin_repo, files, fragment):
     base = kb()
@@ -465,6 +467,30 @@ def test_bytecode_beside_a_locked_plugin_is_not_a_modification(charter, kb, plug
     charter("plugin", "add", "--from", _from(plugin_repo()), cwd=base)
     (base / INSTALLED / "__pycache__").mkdir()
     (base / INSTALLED / "__pycache__" / "check.cpython-313.pyc").write_bytes(b"\0bytecode")
+
+    result = charter("validate", "--format", "json", cwd=base)
+
+    assert (result.exit_code, _diagnostics(result)) == (1, TODO_FOUND)
+
+
+@pytest.mark.parametrize(
+    "junk",
+    [
+        ".DS_Store",
+        "Thumbs.db",
+        "desktop.ini",
+        ".pytest_cache/x",
+        ".mypy_cache/x",
+        ".ruff_cache/x",
+        ".venv/x",
+        "venv/x",
+        "sub/.DS_Store",
+    ],
+)
+def test_os_and_tool_files_in_a_locked_plugin_are_not_a_modification(charter, kb, plugin_repo, junk):
+    base = kb()
+    charter("plugin", "add", "--from", _from(plugin_repo()), cwd=base)
+    write_files(base / INSTALLED, {junk: b"\0junk"})
 
     result = charter("validate", "--format", "json", cwd=base)
 
@@ -605,7 +631,16 @@ def test_content_hash_compares_file_names_in_one_unicode_form(charter, make_kb, 
 def test_dev_installs_a_working_copy_and_refreshes_it_when_added_again(charter, kb, tmp_path_factory):
     working = tmp_path_factory.mktemp("work") / "todo-free"
     shutil.copytree(FIXTURES / "plugins" / "todo-free", working)
-    write_files(working, {".git/HEAD": "ref: refs/heads/main\n", "__pycache__/x.pyc": b"\0"})
+    write_files(
+        working,
+        {
+            ".git/HEAD": "ref: refs/heads/main\n",
+            "__pycache__/x.pyc": b"\0",
+            ".venv/pyvenv.cfg": "home = /usr/bin\n",
+            ".pytest_cache/README.md": "cache\n",
+            ".DS_Store": b"\0",
+        },
+    )
     base = kb()
 
     first = charter("plugin", "add", "--dev", str(working), cwd=base)
@@ -628,6 +663,22 @@ def test_dev_installs_a_working_copy_and_refreshes_it_when_added_again(charter, 
     assert second.exit_code == 0, second.stdout
     assert _lock(base)["plugins"]["todo-free"]["sha256"] != TODO_FREE_SHA256
     assert charter("validate", "--format", "json", cwd=base).exit_code == 0
+
+
+def test_dev_copies_names_that_differ_from_an_ignored_name_only_in_letter_case(charter, kb, tmp_path_factory):
+    # Ignored names match in exact letter case, also on Windows, where fnmatch would fold case.
+    working = tmp_path_factory.mktemp("work") / "todo-free"
+    shutil.copytree(FIXTURES / "plugins" / "todo-free", working)
+    write_files(working, {"THUMBS.DB": b"\0", "Venv/pyvenv.cfg": "home = /usr/bin\n"})
+    base = kb()
+
+    result = charter("plugin", "add", "--dev", str(working), cwd=base)
+
+    assert result.exit_code == 0, result.stdout
+    installed = base / INSTALLED
+    assert sorted(p.name for p in installed.iterdir()) == ["THUMBS.DB", "Venv", "charter-plugin.yaml", "check.py"]
+    assert (installed / "Venv" / "pyvenv.cfg").is_file()
+    assert _lock(base)["plugins"]["todo-free"]["sha256"] != TODO_FREE_SHA256
 
 
 def test_dev_path_must_be_a_directory(charter, kb, tmp_path_factory):

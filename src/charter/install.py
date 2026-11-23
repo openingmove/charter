@@ -19,9 +19,10 @@ from charter.contract import PluginSettings
 from charter.diagnostics import CORE_NAMESPACES, Diagnostic, Refused, Severity, code_list
 from charter.files import append_lines, left_behind, remove_tree, replace_file, writing
 from charter.lock import (
-    IGNORED_NAMES,
     LOCK_FILENAME,
     PLUGINS_DIR,
+    STAGING_PREFIX,
+    SYMLINK_HINT,
     DevSource,
     GitSource,
     Locked,
@@ -29,13 +30,13 @@ from charter.lock import (
     is_vendored,
     lock_bytes,
     symlink_reason,
-    symlinks_in,
     vendored_directory,
     write_lock,
 )
 from charter.pathpattern import segment_problem
 from charter.plugin import MANIFEST_FILENAME, manifest_of
 from charter.process import Finished, run_bounded
+from charter.tree import PLUGIN_IGNORED_NAMES, symlinks_in
 from charter.validate import CHECK_CODES
 
 WRITE_FAILED = "plugin/write-failed"
@@ -289,7 +290,7 @@ def _commit(
     created = [d for d in (target.parent, target.parent.parent) if not d.exists()]
     with writing(relative, WRITE_FAILED):
         target.parent.mkdir(parents=True, exist_ok=True)
-        staging = Path(tempfile.mkdtemp(prefix=".staging-", dir=target.parent))
+        staging = Path(tempfile.mkdtemp(prefix=STAGING_PREFIX, dir=target.parent))
     new, previous = staging / "new", staging / "previous"
     kept = f"{PLUGINS_DIR}/{staging.name}/{previous.name}"
     existed = os.path.lexists(target)
@@ -342,7 +343,7 @@ def _commit(
         locked = {other: entry for other, entry in settings.locked.items() if other != plugin_id}
         with writing(relative, WRITE_FAILED):
             if copy is not None:
-                shutil.copytree(copy.source, new, ignore=shutil.ignore_patterns(*IGNORED_NAMES))
+                shutil.copytree(copy.source, new, ignore=_ignored_names)
                 sha256 = content_hash(new)
                 # The source was checked for links, so the copy holds none and has a hash.
                 assert sha256 is not None
@@ -377,6 +378,12 @@ def _commit(
                 failure.add_note(f"{warning.message} {warning.hint}")
         raise
     return left_behind(remove_tree(staging), settings.base_dir)
+
+
+def _ignored_names(_directory: str, names: list[str]) -> list[str]:
+    """The names in one directory that a plugin's copy leaves out, matched in exact letter case. Not
+    `shutil.ignore_patterns`: its fnmatch folds letter case on Windows, unlike the content hash and link listing."""
+    return [name for name in names if name in PLUGIN_IGNORED_NAMES]
 
 
 def _remove_if_empty(directories: list[Path]) -> None:
@@ -558,8 +565,8 @@ def _install(
             _problem(
                 settings,
                 "plugin/symlink",
-                f"`{shown}` {symlink_reason(link)}",
-                "Ask the plugin's author to replace the link with the file it points to.",
+                f"`{shown}` {symlink_reason([link])}",
+                SYMLINK_HINT,
             )
             for link in links
         ])
@@ -592,7 +599,9 @@ def _install(
 
 def _is_python(plugin: Path) -> bool:
     return any(
-        file.is_file() and file.suffix == ".py" and not IGNORED_NAMES.intersection(file.relative_to(plugin).parts)
+        file.is_file()
+        and file.suffix == ".py"
+        and not PLUGIN_IGNORED_NAMES.intersection(file.relative_to(plugin).parts)
         for file in plugin.rglob("*.py")
     )
 

@@ -1,4 +1,5 @@
 import shutil
+import unicodedata
 
 import pytest
 from conftest import AGENTS_INCLUDE_OFF, FIXTURES, commit_files, delete_git_object, run_git, write_files
@@ -139,6 +140,27 @@ def test_a_staged_deletion_touches_its_kind(charter, make_kb):
     run_git(kb, "rm", "-q", "notes/2.md")
 
     assert _codes(_staged(charter, kb)) == [("charter.yaml", "ids/count"), ("charter.yaml", "ids/gap")]
+
+
+def test_a_file_run_on_a_deleted_note_touches_its_kind_as_staged_does(charter, make_kb):
+    notes = {f"notes/{n}.md": f"---\nkind: entry\nid: {n}\n---\n" for n in (1, 2, 3)}
+    kb = _committed(make_kb, {"charter.yaml": CONTIGUOUS, **notes})
+    run_git(kb, "rm", "-q", "notes/2.md")
+
+    by_file = charter("validate", "--file", "notes/2.md", "--profile", "ci", "--format", "json", cwd=kb)
+
+    assert _codes(by_file) == _codes(_staged(charter, kb))
+    assert _codes(by_file) == [("charter.yaml", "ids/count"), ("charter.yaml", "ids/gap")]
+
+
+def test_a_file_run_on_a_deleted_note_of_another_kind_leaves_a_kind_untouched(charter, make_kb):
+    notes = {f"notes/{n}.md": f"---\nkind: entry\nid: {n}\n---\n" for n in (1, 3)}
+    kb = _committed(make_kb, {"charter.yaml": CONTIGUOUS, **notes, "notes/x.md": "---\nkind: other\n---\n"})
+    (kb / "notes/x.md").unlink()
+
+    by_file = charter("validate", "--file", "notes/x.md", "--profile", "ci", "--format", "json", cwd=kb)
+
+    assert (by_file.exit_code, _codes(by_file)) == (0, [])
 
 
 def test_a_staged_deletion_of_another_kind_leaves_a_kind_untouched(charter, make_kb):
@@ -446,7 +468,11 @@ def test_a_staged_plugin_whose_file_and_directory_differ_only_by_case_is_a_plugi
 
 
 def _plugin_diagnostics(result):
-    return [(d["path"], d["line"], d["code"], d["message"], d["hint"]) for d in result.json()["diagnostics"]]
+    """The `plugin/modified` diagnostics, as (message, hint) pairs."""
+    return [(d["message"], d["hint"]) for d in result.json()["diagnostics"] if d["code"] == "plugin/modified"]
+
+
+LINK_HINT = "Ask the plugin's author to replace the link with the file it points to."
 
 
 def test_a_staged_link_in_a_vendored_plugin_is_reported_as_the_working_copy_reports_it(charter, make_kb):
@@ -465,9 +491,10 @@ def test_a_staged_link_in_a_vendored_plugin_is_reported_as_the_working_copy_repo
     from_index = _staged(charter, working)
 
     assert (from_index.exit_code, from_working_copy.exit_code) == (3, 3)
-    reported = _plugin_diagnostics(from_index)
-    assert [(code, "`lib/shared.py`" in message) for _, _, code, message, _ in reported] == [("plugin/modified", True)]
-    assert reported == _plugin_diagnostics(from_working_copy)
+    [(message, hint)] = _plugin_diagnostics(from_index)
+    assert "`lib/shared.py`" in message
+    assert hint == LINK_HINT
+    assert _plugin_diagnostics(from_working_copy) == [(message, hint)]
 
 
 def test_a_staged_link_in_a_vendored_plugin_is_found_by_its_mode_though_it_leads_nowhere(charter, make_kb):
@@ -479,9 +506,75 @@ def test_a_staged_link_in_a_vendored_plugin_is_found_by_its_mode_though_it_leads
     result = _staged(charter, kb)
 
     assert result.exit_code == 3
-    assert [(code, "`lib/copy.py`" in message) for _, _, code, message, _ in _plugin_diagnostics(result)] == [
-        ("plugin/modified", True)
-    ]
+    [(message, _)] = _plugin_diagnostics(result)
+    assert "`lib/copy.py`" in message
+
+
+def test_every_link_in_a_vendored_plugin_is_named_in_one_diagnostic(charter, make_kb):
+    kb = _vendored(charter, make_kb)
+    _stage(kb, {"notes/a.md": PLAN + "\nMore.\n"})
+    _stage_link(kb, ".charter/plugins/todo-free/lib/one.py", "../check.py")
+    _stage_link(kb, ".charter/plugins/todo-free/two.py", "check.py")
+
+    result = _staged(charter, kb)
+
+    assert result.exit_code == 3
+    [(message, hint)] = _plugin_diagnostics(result)
+    assert "`lib/one.py`" in message
+    assert "`two.py`" in message
+    assert hint == LINK_HINT
+
+
+def test_a_link_and_an_edited_file_in_a_vendored_plugin_are_both_reported(charter, make_kb):
+    kb = _vendored(charter, make_kb)
+    _stage(kb, {"notes/a.md": PLAN + "\nMore.\n", VENDORED: "edited\n"})
+    _stage_link(kb, ".charter/plugins/todo-free/lib/one.py", "../check.py")
+
+    result = _staged(charter, kb)
+
+    assert result.exit_code == 3
+    [(links, link_hint), (mismatch, mismatch_hint)] = _plugin_diagnostics(result)
+    assert "`lib/one.py`" in links
+    assert link_hint == LINK_HINT
+    assert "no longer match the sha256" in mismatch
+    assert mismatch_hint.startswith("Restore `.charter/plugins/todo-free` from version control")
+
+
+def test_a_link_and_an_edited_file_in_a_working_copy_plugin_are_both_reported(charter, make_kb):
+    kb = _vendored(charter, make_kb)
+    write_files(kb, {VENDORED: "edited\n"})
+    try:
+        (kb / ".charter/plugins/todo-free/one.py").symlink_to("check.py")
+        (kb / ".charter/plugins/todo-free/two.py").symlink_to("check.py")
+    except (OSError, NotImplementedError):
+        pytest.skip("this machine cannot create symbolic links")
+
+    result = charter("validate", "--format", "json", cwd=kb)
+
+    assert result.exit_code == 3
+    [(links, link_hint), (mismatch, _)] = _plugin_diagnostics(result)
+    assert "`one.py`" in links
+    assert "`two.py`" in links
+    assert link_hint == LINK_HINT
+    assert "no longer match the sha256" in mismatch
+
+
+def test_a_link_that_takes_the_place_of_a_locked_file_is_also_a_hash_mismatch(charter, make_kb):
+    kb = _vendored(charter, make_kb)
+    vendored = kb / VENDORED
+    vendored.unlink()
+    try:
+        vendored.symlink_to("charter-plugin.yaml")
+    except (OSError, NotImplementedError):
+        pytest.skip("this machine cannot create symbolic links")
+
+    result = charter("validate", "--format", "json", cwd=kb)
+
+    assert result.exit_code == 3
+    [(links, link_hint), (mismatch, _)] = _plugin_diagnostics(result)
+    assert "`check.py`" in links
+    assert link_hint == LINK_HINT
+    assert "no longer match the sha256" in mismatch
 
 
 def test_a_vendored_plugin_without_links_is_unchanged_by_the_link_check(charter, make_kb):
@@ -489,3 +582,58 @@ def test_a_vendored_plugin_without_links_is_unchanged_by_the_link_check(charter,
     _stage(kb, {"notes/a.md": PLAN + "\nMore.\n"})
 
     assert _codes(_staged(charter, kb)) == []
+
+
+DOCS_MANIFEST = 'charter_plugin: 1\nid: todo-free\nversion: 1.2.0\nrun: ["python", "check.py"]\ndocs: rules.md\n'
+
+
+@pytest.mark.parametrize(
+    ("manifest_name", "docs_name", "problem"),
+    [
+        ("charter-plugin.yaml", "RULES.md", "`docs` file `rules.md` could not be read"),
+        (
+            "CHARTER-PLUGIN.YAML",
+            "rules.md",
+            "plugin manifest `tools/todo-free/charter-plugin.yaml`: the file could not be read",
+        ),
+    ],
+    ids=["docs", "manifest"],
+)
+def test_a_plugin_file_named_in_another_letter_case_is_refused_in_every_mode(
+    charter, make_kb, manifest_name, docs_name, problem
+):
+    # Why: a file system that ignores case finds `RULES.md` for `rules.md`; git, and so `--range`, never does.
+    kb = _plugin_kb(make_kb)
+    base = run_git(kb, "rev-parse", "HEAD").strip()
+    plugin = kb / "tools" / "todo-free"
+    # Why: with `core.ignorecase`, `git add` keeps the index entry's old spelling over a case-only rename.
+    run_git(kb, "rm", "-q", "--cached", "tools/todo-free/charter-plugin.yaml")
+    (plugin / "charter-plugin.yaml").unlink()
+    (plugin / manifest_name).write_text(DOCS_MANIFEST)
+    (plugin / docs_name).write_text("# Rules\n")
+    run_git(kb, "add", "-A")
+
+    from_index = _staged(charter, kb)
+    from_working_copy = charter("validate", "--format", "json", cwd=kb)
+    run_git(kb, "commit", "-q", "-m", "Rename a plugin file")
+    from_range = charter("validate", f"--range={base}..HEAD", "--format", "json", cwd=kb)
+
+    for result in (from_index, from_working_copy, from_range):
+        assert result.exit_code == 2
+        diagnostics = result.json()["diagnostics"]
+        assert [(d["path"], d["code"]) for d in diagnostics] == [("charter.yaml", "contract/invalid")]
+        assert problem in diagnostics[0]["message"]
+
+
+def test_a_plugin_docs_name_matches_its_file_in_either_unicode_form(charter, make_kb):
+    # Why: macOS may store a name decomposed (NFD) and git there reports it composed (NFC), so `--range` finds it.
+    kb = _plugin_kb(make_kb)
+    plugin = kb / "tools" / "todo-free"
+    composed = unicodedata.normalize("NFC", "règles.md")
+    (plugin / "charter-plugin.yaml").write_text(DOCS_MANIFEST.replace("rules.md", composed), encoding="utf-8")
+    (plugin / unicodedata.normalize("NFD", composed)).write_text("# Rules\n", encoding="utf-8")
+
+    result = charter("validate", "--format", "json", cwd=kb)
+
+    assert "contract/invalid" not in [d["code"] for d in result.json()["diagnostics"]]
+    assert result.exit_code != 2

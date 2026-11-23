@@ -3,6 +3,7 @@
 import datetime
 import unicodedata
 from collections.abc import Iterable, Mapping
+from enum import Enum
 from pathlib import Path
 
 from charter import index, overrides
@@ -22,11 +23,11 @@ from charter.checks.updated_date import UpdatedDateCheck
 from charter.contract import Contract, OptionalCheck, PluginSettings, load_contract, load_plugin_settings
 from charter.diagnostics import PLUGIN_SKIPPED_PATH, Diagnostic
 from charter.git import Change
-from charter.history import History
+from charter.history import EditDelta, History
 from charter.index import Note
 from charter.links import Resolver
 from charter.profiles import Finding, Profile
-from charter.tree import Tree, decode
+from charter.tree import Tree
 
 _PATHS = PathsCheck()
 _UPDATED_DATE = UpdatedDateCheck()
@@ -79,6 +80,18 @@ def plugin_settings_at(config: Path) -> PluginSettings:
 Targets = frozenset[str] | Change | None
 
 
+class Deferral(Enum):
+    """When a run judges the edits of `OVERRIDABLE_CHECKS`, whose violations a commit-message trailer may allow."""
+
+    # Judge them in this run.
+    JUDGE = "judge"
+    # Leave them to git's commit-msg stage, and say so with an info each (git's pre-commit stage).
+    ANNOUNCE = "announce"
+    # Leave them to git's commit-msg stage without a word: a commit-msg hook is installed, so the info would only
+    # repeat what that hook is about to do.
+    SILENT = "silent"
+
+
 def validate(
     contract: Contract,
     targets: Targets,
@@ -89,26 +102,23 @@ def validate(
     pending: Mapping[str, str] | None = None,
     per_edit: bool = False,
     history: History = None,
-    overridable_checks: bool = True,
-    announce_deferred: bool = True,
+    deferral: Deferral = Deferral.JUDGE,
 ) -> list[Diagnostic]:
     """Diagnostics for `targets` (diagnostic-form paths), with `pending` notes in the index, as of `today`. For a
     change, the kinds its modified and deleted notes had before it count as touched too.
 
     `per_edit` marks a run that checks one edit as it happens (see `CheckRequest.per_edit`); `history` is what
-    the run's change did to existing files (see `CheckRequest.history`). Without `overridable_checks` (git's
-    pre-commit stage) the judgements of `OVERRIDABLE_CHECKS` are left to `overridable_findings`, at the
-    commit-msg stage, and say so with an info each unless `announce_deferred` is off (a commit-msg hook is
-    installed, so the note would only repeat what that hook is about to do).
+    the run's change did to existing files (see `CheckRequest.history`). `deferral` says whether the judgements of
+    `OVERRIDABLE_CHECKS` are made here or left to `overridable_findings`, at the commit-msg stage.
     """
     built, request = _check_request(contract, targets, pending, per_edit=per_edit, history=history, today=today)
     findings = [Finding(d) for d in built.diagnostics if request.whole or d.path in request.targets]
     for check in (*BUILTIN_CHECKS, *map(PluginCheck, contract.plugins.values())):
         if contract.check_config(check.id).enabled:
             findings.extend(_findings(contract, check.id, check.run(request)))
-    if overridable_checks:
+    if deferral is Deferral.JUDGE:
         findings.extend(_overridable_findings(request))
-    elif announce_deferred:
+    elif deferral is Deferral.ANNOUNCE:
         for overridable in judging_edits(contract):
             findings.extend(_findings(contract, overridable.id, [overridable.deferred(contract)]))
     return profile.apply(findings, strict=strict)
@@ -248,7 +258,13 @@ def _check_request(
         selected = frozenset(judged(path) for path in paths)
     kinds = touched_kinds(contract, built.notes, selected)
     if isinstance(targets, Change):
-        kinds |= _kinds_before(contract, targets.before)
+        kinds |= index.kinds_before(contract, targets.before)
+    elif paths is not None and isinstance(history, EditDelta):
+        # A named file deleted from the working copy touches the kind it had, as a staged deletion does.
+        deleted = frozenset(path for path in selected if not contract.tree.is_file(path))
+        if deleted:
+            kept = frozenset(history.before.files(contract.root_path)) - deleted
+            kinds |= index.kinds_before(contract, history.before, leaving_out=kept)
     request = CheckRequest(
         contract=contract,
         notes=built.notes,
@@ -269,17 +285,3 @@ def touched_kinds(contract: Contract, notes: Iterable[Note], targets: frozenset[
         return frozenset(contract.kinds)
     kinds = (contract.kind_of(note.frontmatter) for note in notes if note.path in targets)
     return frozenset(kind.name for kind in kinds if kind is not None)
-
-
-def _kinds_before(contract: Contract, before: Tree) -> frozenset[str]:
-    """The kinds of the notes in `before`: those the knowledge base would index."""
-    notes = [path for path in before.files(contract.root_path) if path.endswith(".md") and not contract.ignores(path)]
-    kinds = set()
-    for content in before.read(notes).values():
-        try:
-            kind = contract.kind_of(index.frontmatter_of(decode(content)))
-        except UnicodeDecodeError:
-            continue
-        if kind is not None:
-            kinds.add(kind.name)
-    return frozenset(kinds)

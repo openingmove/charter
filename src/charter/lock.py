@@ -1,10 +1,8 @@
 """`charter.lock`: the plugins charter vendored, where each came from, and the content hash of its directory."""
 
 import hashlib
-import os
 import re
-import unicodedata
-from collections.abc import Iterator, Mapping
+from collections.abc import Collection, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -14,13 +12,17 @@ from charter.diagnostics import Diagnostic, Severity
 from charter.files import contract_relative, replace_file
 from charter.schemacheck import errors as schema_errors
 from charter.schematext import located_message
-from charter.tree import decode
+from charter.tree import decode, plugin_files
 
 LOCK_FILENAME = "charter.lock"
 # Where `charter plugin add` puts each plugin, as `<PLUGINS_DIR>/<id>`, relative to charter.yaml.
 PLUGINS_DIR = ".charter/plugins"
-# Never part of a plugin: version control, and the bytecode Python leaves beside modules it runs.
-IGNORED_NAMES = frozenset({".git", "__pycache__"})
+# The name prefix of the folder in PLUGINS_DIR where `plugin add`, `update` and `remove` stage their change.
+STAGING_PREFIX = ".staging-"
+# A staging folder that an interrupted plugin command left behind.
+PLUGIN_LEFTOVER_STAGING = "plugin/leftover-staging"
+# What to do about a plugin that holds a symbolic link, for `plugin add` and for a run alike.
+SYMLINK_HINT = "Ask the plugin's author to replace the link with the file it points to."
 # git reads only this much of a file to decide whether it is binary.
 _BINARY_SNIFF = 8000
 _HEADER = "# Written by `charter plugin`; do not edit by hand.\n"
@@ -133,6 +135,31 @@ def vendored_directory(plugin_id: str) -> str:
     return f"{PLUGINS_DIR}/{plugin_id}"
 
 
+def leftover_staging(base_dir: Path) -> list[Diagnostic]:
+    """A warning for each staging folder in PLUGINS_DIR. Only an interrupted plugin command leaves one, and its
+    `previous/` may hold the only copy of a plugin's previous directory, so charter reports it and never deletes it."""
+    try:
+        names = sorted(
+            entry.name
+            for entry in (base_dir / PLUGINS_DIR).iterdir()
+            if entry.name.startswith(STAGING_PREFIX) and entry.is_dir()
+        )
+    except OSError:
+        return []
+    return [
+        Diagnostic(
+            shown,
+            None,
+            Severity.WARNING,
+            PLUGIN_LEFTOVER_STAGING,
+            f"`{shown}` was left behind by an interrupted `charter plugin add`, `update` or `remove`.",
+            "Its `previous/` folder may hold the only copy of a plugin's previous directory. Check it, then delete "
+            "the folder yourself; charter never deletes it.",
+        )
+        for shown in (f"{PLUGINS_DIR}/{name}" for name in names)
+    ]
+
+
 def is_vendored(plugin_id: str, source: str | None, locked: Mapping[str, Locked]) -> bool:
     """Whether the lock covers a plugin: it is locked, and its `checks` entry, if it has one, uses the directory
     `plugin add` installed it in. A `source` anywhere else is a plugin used in place, whatever the lock says."""
@@ -162,30 +189,27 @@ def _source_data(source: GitSource | DevSource) -> dict[str, Any]:
     return data if source.commit is None else {**data, "commit": source.commit}
 
 
-def symlink_reason(link: str) -> str:
-    """Why a plugin may not hold the symbolic link `link` (relative to the plugin), for `plugin add` and for a run."""
-    return (
-        f"holds a symbolic link, `{link}`; a plugin may not, as links read differently on each OS "
-        "and may point outside the plugin."
-    )
+def symlink_reason(links: Sequence[str]) -> str:
+    """Why a plugin may not hold the symbolic `links` (relative to the plugin), for `plugin add` and for a run."""
+    named = ", ".join(f"`{link}`" for link in links)
+    held = f"a symbolic link, {named}" if len(links) == 1 else f"symbolic links, {named}"
+    return f"holds {held}; a plugin may not, as links read differently on each OS and may point outside the plugin."
 
 
-def symlinks_in(directory: Path) -> list[str]:
-    """The relative POSIX paths of the symbolic links in a plugin directory."""
-    return sorted(relative for relative, file in _files(directory) if file.is_symlink())
-
-
-def content_hash(directory: Path) -> str | None:
+def content_hash(directory: Path, leaving_out: Collection[str] = ()) -> str | None:
     """The sha256 of a plugin directory, the same on every OS and checkout; None when it holds a symbolic link,
     which no plugin may (a link's target reads differently on each OS, and may lie outside the plugin).
 
     It covers each file's path relative to `directory` (POSIX, Unicode NFC) and its bytes, in path order.
     Git may check text files out with CRLF line endings (`core.autocrlf`, `eol` attributes), so CRLF counts as
-    LF in any file with no NUL byte in its first 8000 bytes, git's own test for binary. Anything named in
-    IGNORED_NAMES, empty directories (git does not track them) and file modes (Windows has none) are left out.
+    LF in any file with no NUL byte in its first 8000 bytes, git's own test for binary. Names in
+    `tree.PLUGIN_IGNORED_NAMES`, empty directories (git does not track them) and file modes (Windows has none) are
+    left out, and so are the paths in `leaving_out` (relative, NFC), such as links already reported.
     """
     digest = hashlib.sha256()
-    for relative, file in sorted(_files(directory)):
+    for relative, file in sorted(plugin_files(directory)):
+        if relative in leaving_out:
+            continue
         if file.is_symlink():
             return None
         content = file.read_bytes()
@@ -193,15 +217,3 @@ def content_hash(directory: Path) -> str | None:
             content = content.replace(b"\r\n", b"\n")
         digest.update(relative.encode("utf-8") + b"\0" + hashlib.sha256(content).hexdigest().encode() + b"\n")
     return digest.hexdigest()
-
-
-def _files(directory: Path) -> Iterator[tuple[str, Path]]:
-    for folder, folders, names in os.walk(directory):
-        here = Path(folder)
-        # os.walk lists a link to a directory among the folders but does not follow it.
-        links = [name for name in folders if (here / name).is_symlink()]
-        folders[:] = [name for name in folders if name not in IGNORED_NAMES and name not in links]
-        # A git worktree's `.git` is a file.
-        for name in (name for name in (*names, *links) if name not in IGNORED_NAMES):
-            file = here / name
-            yield unicodedata.normalize("NFC", file.relative_to(directory).as_posix()), file

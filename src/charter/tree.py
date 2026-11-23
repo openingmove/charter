@@ -2,12 +2,30 @@
 content. Paths are in diagnostic form: POSIX, relative to the directory holding charter.yaml."""
 
 import os
-from collections.abc import Iterable
+import unicodedata
+from collections.abc import Iterable, Iterator
 from pathlib import Path, PurePosixPath
 from typing import Protocol
 
 # Version-control internals are never part of a knowledge base, even when root is the repository.
 _SKIPPED_DIRECTORIES = frozenset({".git"})
+# Never part of a plugin: version control, the bytecode Python leaves beside modules it runs, files the OS drops into
+# folders, tool caches and virtual environments. The one list of names a plugin's files leave out, for its content
+# hash, its links and its copy alike. A name matches a file or directory at any depth, in exact letter case.
+PLUGIN_IGNORED_NAMES = frozenset(
+    {
+        ".git",
+        "__pycache__",
+        ".DS_Store",
+        "Thumbs.db",
+        "desktop.ini",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".ruff_cache",
+        ".venv",
+        "venv",
+    }
+)
 
 
 class Tree(Protocol):
@@ -88,16 +106,11 @@ class WorkingTree:
         return (self.base_dir / path).exists()
 
     def is_exact_file(self, path: str) -> bool:
-        # A case-insensitive file system answers `is_file` for a wrong-case path; a listing of each parent does not.
-        current = self.base_dir
-        for segment in PurePosixPath(path).parts:
-            try:
-                if segment not in os.listdir(current):
-                    return False
-            except OSError:
-                return False
-            current = current / segment
-        return current.is_file()
+        try:
+            found = exact_path(self.base_dir, path)
+        except OSError:
+            return False
+        return found is not None and found.is_file()
 
     def is_directory(self, path: str) -> bool:
         return (self.base_dir / path).is_dir()
@@ -106,10 +119,56 @@ class WorkingTree:
         return self.base_dir / path
 
     def symlinks(self, path: str) -> list[str]:
-        # Imported here: lock reads this module for `decode`.
-        from charter.lock import symlinks_in
-
         return symlinks_in(self.base_dir / path)
+
+
+def plugin_name(relative: str) -> str | None:
+    """The plugin-relative POSIX path `relative` in the one form charter compares plugin files in (Unicode NFC),
+    or None when a segment of it is in PLUGIN_IGNORED_NAMES."""
+    if not PLUGIN_IGNORED_NAMES.isdisjoint(relative.split("/")):
+        return None
+    return unicodedata.normalize("NFC", relative)
+
+
+def plugin_files(directory: Path) -> Iterator[tuple[str, Path]]:
+    """Each file and symbolic link in a plugin directory on disk, as its `plugin_name` and its path. Links are not
+    followed."""
+    for folder, folders, names in os.walk(directory):
+        here = Path(folder)
+        # os.walk lists a link to a directory among the folders but does not follow it.
+        links = [name for name in folders if (here / name).is_symlink()]
+        folders[:] = [name for name in folders if name not in PLUGIN_IGNORED_NAMES and name not in links]
+        # A git worktree's `.git` is a file.
+        for name in (*names, *links):
+            file = here / name
+            relative = plugin_name(file.relative_to(directory).as_posix())
+            if relative is not None:
+                yield relative, file
+
+
+def symlinks_in(directory: Path) -> list[str]:
+    """The `plugin_name`s of the symbolic links in a plugin directory on disk, sorted."""
+    return sorted(relative for relative, file in plugin_files(directory) if file.is_symlink())
+
+
+def exact_path(base: Path, relative: str, *, any_form: bool = False) -> Path | None:
+    """The path of `relative` below `base` as the file system spells it, or None when a segment matches no name in
+    its directory in letter case. With `any_form`, a segment also matches a name that differs only in Unicode form
+    (NFC or NFD), as git reports names on macOS; an exact name wins. Raises OSError when a directory cannot be
+    listed."""
+    # A case-insensitive file system (macOS, Windows) opens a wrong-case path; a listing of each parent does not.
+    current = base
+    for segment in PurePosixPath(relative).parts:
+        names = os.listdir(current)
+        if segment in names:
+            current = current / segment
+            continue
+        wanted = unicodedata.normalize("NFC", segment)
+        matches = [name for name in names if any_form and unicodedata.normalize("NFC", name) == wanted]
+        if not matches:
+            return None
+        current = current / matches[0]
+    return current
 
 
 def decode(data: bytes, encoding: str = "utf-8-sig") -> str:

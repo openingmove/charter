@@ -107,6 +107,13 @@ def test_approval_checks_every_kind_the_plan_creates_notes_for_has_a_path_before
     assert approval.index(PATHLESS) < approval.index("Ask for a yes")
 
 
+def test_approval_predicts_the_hand_off_with_both_conditions_of_the_fit_check():
+    approval = _step(10)
+
+    assert "Step 11 always hands off to Migrate for a new folder." in approval
+    assert "a diagnostic at severity `error` or `warning`, or a note fix on record from step 5" in approval
+
+
 def test_the_section_map_names_no_target_of_a_kind_with_no_path():
     handoff = _step(13)
 
@@ -120,3 +127,5 @@ def test_the_interview_table_moves_an_append_only_file_out_of_a_protected_folder
     row = next(row for row in rows if "append" in row.split("|")[1])
     assert "`edit: create-only` or `edit: read-only`" in row
     assert "must move out of that folder" in row
+    assert "no `edit:` value lifts the policy for one file" in row
+    assert "An `ignore: true` rule for the file would lift it, but the file then stops being a note" in row

@@ -14,7 +14,8 @@ _PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 _STILL_ACTIVE = 259
 
 # A process charter left behind sleeps this long, so a test that fails leaves nothing running for long.
-# tests/fixtures/plugins/misbehave/misbehave.py repeats this value as a literal, since a plugin cannot import it.
+# tests/fixtures/plugins/misbehave/misbehave.py repeats this value as a literal, since a plugin cannot import it;
+# a test in tests/test_plugins.py fails when the two differ.
 LEFTOVER_SECONDS = 30
 
 # How long `gone_within` waits by default for a process to end.

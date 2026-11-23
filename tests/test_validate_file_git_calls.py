@@ -151,3 +151,14 @@ def test_a_repository_with_no_commit_is_reported_as_unchecked(charter, make_kb):
 
     assert _codes(result) == [("charter.yaml", "paths/edit-skipped")]
     assert "no commit yet" in result.json()["diagnostics"][0]["message"]
+
+
+def test_a_deleted_named_file_is_looked_up_in_git_once(charter, make_kb, git_calls):
+    kb = _repo(make_kb, PLAIN)
+    (kb / "notes/free.md").unlink()
+    git_calls.clear()
+
+    result = _file(charter, kb, "notes/free.md")
+
+    assert result.exit_code == 0
+    assert [call for call in git_calls if call[:2] == ["cat-file", "-t"]] == [["cat-file", "-t", ":./free.md"]]
