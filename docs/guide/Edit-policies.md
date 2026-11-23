@@ -22,7 +22,7 @@ Because the trailer lives in the commit message, edit policies are judged at git
 
 A `Charter-Allow` trailer cannot name every path. For these paths, the trailer allows nothing: charter reports the original violation and an `override/unused` warning for the trailer. To make the edit, rename the file first.
 
-- A path that ends in a line separator (U+2028), a next-line character (U+0085), a form feed or a vertical tab. charter removes whitespace from the end of the path, and these characters count as whitespace.
+- A path that ends in whitespace, for example a space, a tab, a line separator (U+2028), a next-line character (U+0085), a form feed or a vertical tab. charter removes every whitespace character from the end of the path, so the trailer names a different path.
 
 ## The `updated-date` check
 
