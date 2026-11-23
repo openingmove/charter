@@ -10,7 +10,8 @@ import subprocess
 import sys
 import time
 
-behaviour = json.loads(sys.stdin.buffer.read().decode("utf-8"))["params"]["behaviour"]
+request = json.loads(sys.stdin.buffer.read().decode("utf-8"))
+behaviour = request["params"]["behaviour"]
 
 
 def respond(diagnostics, protocol="charter-plugin/1"):
@@ -21,9 +22,11 @@ def diagnostic(**changes):
     return {"path": "a.md", "line": 1, "severity": "error", "code": "misbehave/found", "message": "Found.", **changes}
 
 
-if behaviour == "crash":
+if behaviour == "crash" or (behaviour == "crash-on-fresh" and "Fresh.md" in request["targets"]):
     sys.stderr.write("misbehave: could not read the traversal table\n")
     sys.exit(4)
+elif behaviour == "crash-on-fresh":
+    respond([])
 elif behaviour == "noisy-crash":
     sys.stderr.write("noise " * 5000 + "\nthe real cause\n")
     sys.exit(1)

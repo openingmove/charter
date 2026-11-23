@@ -399,6 +399,16 @@ def test_new_refuses_and_exits_three_when_a_plugin_fails(charter, kb):
     assert not (base / "notes" / "Fresh.md").exists()
 
 
+def test_new_reports_a_plugin_that_fails_only_with_the_new_note_once(charter, kb):
+    base = kb(MISBEHAVE.format(behaviour="crash-on-fresh"), ["misbehave"], notes={"Old.md": OLD}, kinds=NEW_KINDS)
+
+    result = charter("new", "entry", "Fresh", "--format", "agent", cwd=base)
+
+    assert result.exit_code == 3
+    assert result.stdout.count("plugin/failed") == 1
+    assert not (base / "notes" / "Fresh.md").exists()
+
+
 def test_new_reports_plugin_diagnostics_on_the_new_note(charter, kb):
     base = kb(
         BANNED,
