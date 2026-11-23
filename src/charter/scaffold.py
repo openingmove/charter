@@ -13,6 +13,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from charter import yamlsource
+from charter.checks.ids import COLLECTION_CODES, collection_findings
 from charter.checks.paths import edit_violation_for
 from charter.collection import holders, members_by_kind
 from charter.contract import Contract, Kind, Shape, Variant
@@ -345,7 +346,34 @@ def _checked(
         # A run failure (a plugin that crashed) is anchored elsewhere, but leaves the note unchecked.
         if (d.path == path and d.code != _REQUIRED) or d.code in RUN_FAILURES
     ]
-    return [*problems, *found]
+    return [*problems, *found, *_introduced_collection_errors(contract, shape.kind, checked)]
+
+
+def _introduced_collection_errors(contract: Contract, kind: Kind, checked: list[Diagnostic]) -> list[Diagnostic]:
+    """The errors on the draft's kind's `collection` (`ids/count`, `ids/gap`) that the draft brings in.
+
+    An error reported at the same place before the draft is not the draft's doing, so an already-invalid knowledge
+    base does not block unrelated notes. The state before is judged by the `ids` check's own rule over the notes on
+    disk, not by a second `validate` run, which would run every plugin again.
+    """
+    after = [
+        d
+        for d in checked
+        if d.code in COLLECTION_CODES and d.path == contract.file and d.severity is Severity.ERROR
+    ]
+    if not after:
+        return []
+    reported = {_place(d) for d in collection_findings(contract, kind, build_index(contract).notes)}
+    return [d for d in after if _place(d) not in reported]
+
+
+def _place(diagnostic: Diagnostic) -> tuple[str, str | None, int | None]:
+    """A diagnostic's code and where it points.
+
+    Every `collection` finding is reported on the contract, so the path alone cannot tell them apart; the line is
+    that of the kind's `count` or `contiguous`, which tells one kind's `collection` from another's.
+    """
+    return diagnostic.code, diagnostic.path, diagnostic.line
 
 
 def _unplaceable(contract: Contract, shape: Shape, placed: Unsafe | Unrenderable) -> Diagnostic:
