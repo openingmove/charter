@@ -23,7 +23,9 @@ _DIM = "\033[2m"
 _RESET = "\033[0m"
 
 
-# The lone surrogates `surrogateescape` leaves for the bytes of a path that is not valid UTF-8.
+# The lone surrogates `surrogateescape` leaves for the bytes of a path that is not valid UTF-8. `chr()` builds
+# them, and the backslash in `printable`, so no lone surrogate or backslash literal sits in the source for an
+# editor or tool to rewrite.
 _UNDECODED_BYTE = re.compile("[" + chr(0xDC80) + "-" + chr(0xDCFF) + "]")
 
 
@@ -43,6 +45,7 @@ def _printable(d: Diagnostic) -> Diagnostic:
 def render(diagnostics: list[Diagnostic], output_format: str, stream: TextIO, profile: str | None = None) -> None:
     """`profile` names the active severity profile; None when none applied (an invalid contract)."""
     # Ordering here, not in each producer, is what keeps output deterministic across platforms.
+    # Sorting after the escape is deliberate: a path that is not valid UTF-8 sorts by its escaped form, as shown.
     _RENDERERS[output_format](sorted(map(_printable, diagnostics), key=Diagnostic.sort_key), stream, profile)
 
 
