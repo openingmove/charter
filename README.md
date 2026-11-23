@@ -107,7 +107,7 @@ Pick one route for your agent. Each skill checks `charter --version` first and i
 | Agent | Install |
 |---|---|
 | Claude Code | `/plugin marketplace add openingmove/charter`, then `/plugin install charter@charter` |
-| Codex | `codex plugin marketplace add openingmove/charter`, then install `charter` from `/plugins` |
+| Codex | `codex plugin marketplace add openingmove/charter`, then `codex plugin add charter@charter` |
 | GitHub Copilot | `copilot plugin marketplace add openingmove/charter`, then `copilot plugin install charter@charter` |
 | Gemini CLI | `gemini skills install https://github.com/openingmove/charter.git --path skills` |
 | Any other agent | `npx skills@latest add openingmove/charter` (through [skills.sh](https://skills.sh)) |
