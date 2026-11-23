@@ -100,7 +100,7 @@ Give `ref` the same tag as `uses`. `uses` picks the action's own files; `ref` pi
 
 ## Git hooks
 
-charter ships two hooks for [pre-commit](https://pre-commit.com): `charter` (pre-commit stage) and `charter-commit-msg` (commit-msg stage). Install both: the `charter` hook leaves edit policies and `protected-region` to `charter-commit-msg`, so without it those checks never run. Setup, and plain git hooks without pre-commit: see [Git hooks](docs/guide/Git-hooks.md).
+charter ships two hooks for [pre-commit](https://pre-commit.com): `charter` (pre-commit stage) and `charter-commit-msg` (commit-msg stage). Install both: the `charter` hook passes `--commit-msg-installed`, so it leaves edit policies and `protected-region` to `charter-commit-msg`, so without it those checks never run. Setup, and plain git hooks without pre-commit: see [Git hooks](docs/guide/Git-hooks.md).
 
 ## Skills
 
