@@ -29,7 +29,7 @@ The user manual is in [`docs/guide/`](docs/guide/README.md), and the same pages 
 
 ## Install
 
-charter needs Python 3.11 or later and installs with [uv](https://docs.astral.sh/uv/). It is not on PyPI yet, so install it from this repository, by git URL or from a local checkout:
+charter supports every Python version that is not end-of-life (today 3.11 to 3.15). A version is dropped when it reaches end-of-life. charter installs with [uv](https://docs.astral.sh/uv/). It is not on PyPI yet, so install it from this repository, by git URL or from a local checkout:
 
 ```
 uv tool install git+https://github.com/openingmove/charter@main
