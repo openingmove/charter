@@ -106,10 +106,10 @@ Pick one route for your agent. Each skill checks `charter --version` first and i
 
 | Agent | Install |
 |---|---|
-| Claude Code | `/plugin marketplace add openingmove/charter`, then `/plugin install charter@charter` |
-| Codex | `codex plugin marketplace add openingmove/charter`, then install `charter` from `/plugins` |
+| Claude Code | `claude plugin marketplace add openingmove/charter`, then `claude plugin install charter@charter` (in a session, the `/plugin` commands should do the same) |
+| Codex | `codex plugin marketplace add openingmove/charter`, then `codex plugin add charter@charter` |
 | GitHub Copilot | `copilot plugin marketplace add openingmove/charter`, then `copilot plugin install charter@charter` |
-| Gemini CLI | `gemini skills install https://github.com/openingmove/charter.git --path skills` |
+| Gemini CLI | `gemini skills install https://github.com/openingmove/charter.git --path skills` (Gemini CLI 0.70.0 cannot clone it: install from a local checkout, see [The skills](docs/guide/Install.md#the-skills)) |
 | Any other agent | `npx skills@latest add openingmove/charter` (through [skills.sh](https://skills.sh)) |
 
 Do not install the same skills by two routes for one agent, or you will get each skill twice. Updates, local checkouts and the hooks of the contract guard: see [The skills](docs/guide/Install.md#the-skills).
