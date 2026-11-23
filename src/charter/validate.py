@@ -22,7 +22,7 @@ from charter.checks.updated_date import UpdatedDateCheck
 from charter.contract import Contract, OptionalCheck, PluginSettings, load_contract, load_plugin_settings
 from charter.diagnostics import PLUGIN_SKIPPED_PATH, Diagnostic
 from charter.git import Change
-from charter.history import History
+from charter.history import EditDelta, History
 from charter.index import Note
 from charter.links import Resolver
 from charter.profiles import Finding, Profile
@@ -249,6 +249,12 @@ def _check_request(
     kinds = touched_kinds(contract, built.notes, selected)
     if isinstance(targets, Change):
         kinds |= index.kinds_before(contract, targets.before)
+    elif paths is not None and isinstance(history, EditDelta):
+        # A named file deleted from the working copy touches the kind it had, as a staged deletion does.
+        deleted = frozenset(path for path in selected if not contract.tree.is_file(path))
+        if deleted:
+            kept = frozenset(history.before.files(contract.root_path)) - deleted
+            kinds |= index.kinds_before(contract, history.before, leaving_out=kept)
     request = CheckRequest(
         contract=contract,
         notes=built.notes,

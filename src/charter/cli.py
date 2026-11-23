@@ -120,7 +120,9 @@ def main(argv: list[str] | None = None) -> int:
         output_format = getattr(args, "format", "")
         output_format = output_format if output_format in FORMATS else "text"
         # A file that does not exist is the first thing to tell the user, before any contract question.
-        if files and (missing := _missing_files(None, files)):
+        # Kept for the run, so git is asked about each missing file once.
+        args.deleted = _deleted_files(files or [])
+        if files and (missing := _missing_files(None, files, args.deleted)):
             return _usage_error(missing, output_format)
         found = discovery.discover(files)
         if isinstance(found, list):
@@ -434,7 +436,10 @@ def _prepare_run(
     except git.GitError as error:
         # Only a git tree raises it, e.g. a staged plugin's blob that git cannot read while writing it out.
         return [_git_problem(config, error, "--staged")]
-    if args.file and (missing := _missing_files(contract, args.file)):
+    deleted = getattr(args, "deleted", None)
+    if deleted is None:
+        deleted = _deleted_files(args.file or [])
+    if args.file and (missing := _missing_files(contract, args.file, deleted)):
         return missing
     try:
         profile = select_profile(contract, args.profile, "edit" if args.file else "commit", os.environ)
@@ -444,7 +449,8 @@ def _prepare_run(
         return _Run(contract, change, change.edits(), profile, today)
     # A file outside the contract's directory cannot be a note, so it simply has nothing to report.
     targets = None if args.file is None else frozenset(filter(None, map(contract.path_of, args.file)))
-    history = _uncommitted(contract, targets, cleanup)
+    # A deleted note's kind is read from git, so a deleted target always asks it.
+    history = _uncommitted(contract, targets, cleanup, needed=any(map(contract.path_of, deleted)))
     if isinstance(history, Diagnostic):
         return [history]
     return _Run(contract, targets, history, profile, today)
@@ -469,13 +475,14 @@ def _today(config: Path) -> datetime.date | Diagnostic:
 
 
 def _uncommitted(
-    contract: Contract, targets: frozenset[str] | None, cleanup: contextlib.ExitStack
+    contract: Contract, targets: frozenset[str] | None, cleanup: contextlib.ExitStack, *, needed: bool = False
 ) -> History | Diagnostic:
     """What the working copy changes in `targets` since the last commit, or why that cannot be known. git is
-    asked only when something judges edits: an overridable check with edits to judge, a history check or a plugin
-    that needs the earlier version."""
+    asked only when `needed` or when something judges edits: an overridable check with edits to judge, a history
+    check or a plugin that needs the earlier version."""
     if not (
-        judging_edits(contract, targets)
+        needed
+        or judging_edits(contract, targets)
         or any(contract.check_config(check.id).enabled for check in HISTORY_CHECKS)
         or any("before" in p.needs for p in contract.plugins.values())
     ):
@@ -973,8 +980,15 @@ def _usage_error(diagnostics: list[Diagnostic], output_format: str) -> int:
     return EXIT_USAGE
 
 
-def _missing_files(contract: Contract | None, files: list[Path]) -> list[Diagnostic]:
-    """One diagnostic per nonexistent file. Before discovery has run there is no loaded contract: the nearest one above the file sets the path form, as typed if none."""
+def _deleted_files(files: list[Path]) -> frozenset[Path]:
+    """The files missing from the working copy that git still tracks: `--file` judges them as deletions."""
+    return frozenset(file for file in files if not file.exists() and git.tracks(file))
+
+
+def _missing_files(contract: Contract | None, files: list[Path], deleted: frozenset[Path]) -> list[Diagnostic]:
+    """One diagnostic per nonexistent file that is not one of the `deleted` files git still tracks. Before
+    discovery has run there is no loaded contract: the nearest one above the file sets the path form, as typed if
+    none."""
     return [
         Diagnostic(
             (contract.path_of(file) if contract else discovery.path_under_contract(file)) or file.as_posix(),
@@ -982,10 +996,11 @@ def _missing_files(contract: Contract | None, files: list[Path]) -> list[Diagnos
             Severity.ERROR,
             "usage/file-not-found",
             f"`{file.as_posix()}` is not an existing file.",
-            "--file takes paths to existing files, relative to the working directory or absolute.",
+            "--file takes paths to existing files, or to deleted files git still tracks, relative to the working "
+            "directory or absolute.",
         )
         for file in files
-        if not file.is_file()
+        if not file.is_file() and file not in deleted
     ]
 
 

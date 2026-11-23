@@ -85,6 +85,13 @@ class _Git:
         found = self._run(["rev-parse", "--verify", "--quiet", f"{revision}^{{commit}}"], b"")
         return found.stdout.decode("ascii").strip() if found.returncode == 0 else None
 
+    def holds_file(self, name: str) -> bool:
+        """Whether the index or `HEAD` holds a file at `name`, relative to the directory git runs in. False
+        outside a repository and for a folder."""
+        # `./` makes the name relative to the directory git runs in, rather than to the top of the working tree.
+        found = (self._run(["cat-file", "-t", f"{tree}:./{name}"], b"") for tree in ("", "HEAD"))
+        return any(finished.stdout.strip() == b"blob" for finished in found)
+
     def objects(self, object_ids: Sequence[str]) -> list[bytes]:
         if not object_ids:
             return []
@@ -320,6 +327,19 @@ def uncommitted(base_dir: Path, working: Tree, paths: Collection[str] | None = N
     untracked = frozenset(_records(git.run("ls-files", "--others", "--exclude-standard", "-z", *pathspecs)))
     added = untracked | {delta.path for delta in deltas if delta.status == "A"}
     return EditDelta(_before(git, deltas), working, added)
+
+
+def tracks(file: Path) -> bool:
+    """Whether git's index or `HEAD` holds a file at `file` (relative to the working directory, or absolute).
+    False outside a repository, where git is not installed, and for a folder."""
+    absolute = Path(os.path.abspath(file))
+    folder = next((parent for parent in absolute.parents if parent.is_dir()), None)
+    if folder is None:
+        return False
+    try:
+        return _Git(folder).holds_file(absolute.relative_to(folder).as_posix())
+    except GitUnavailable:
+        return False
 
 
 def trailers(base_dir: Path, message: bytes) -> list[tuple[str, str]]:
