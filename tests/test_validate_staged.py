@@ -142,6 +142,27 @@ def test_a_staged_deletion_touches_its_kind(charter, make_kb):
     assert _codes(_staged(charter, kb)) == [("charter.yaml", "ids/count"), ("charter.yaml", "ids/gap")]
 
 
+def test_a_file_run_on_a_deleted_note_touches_its_kind_as_staged_does(charter, make_kb):
+    notes = {f"notes/{n}.md": f"---\nkind: entry\nid: {n}\n---\n" for n in (1, 2, 3)}
+    kb = _committed(make_kb, {"charter.yaml": CONTIGUOUS, **notes})
+    run_git(kb, "rm", "-q", "notes/2.md")
+
+    by_file = charter("validate", "--file", "notes/2.md", "--profile", "ci", "--format", "json", cwd=kb)
+
+    assert _codes(by_file) == _codes(_staged(charter, kb))
+    assert _codes(by_file) == [("charter.yaml", "ids/count"), ("charter.yaml", "ids/gap")]
+
+
+def test_a_file_run_on_a_deleted_note_of_another_kind_leaves_a_kind_untouched(charter, make_kb):
+    notes = {f"notes/{n}.md": f"---\nkind: entry\nid: {n}\n---\n" for n in (1, 3)}
+    kb = _committed(make_kb, {"charter.yaml": CONTIGUOUS, **notes, "notes/x.md": "---\nkind: other\n---\n"})
+    (kb / "notes/x.md").unlink()
+
+    by_file = charter("validate", "--file", "notes/x.md", "--profile", "ci", "--format", "json", cwd=kb)
+
+    assert (by_file.exit_code, _codes(by_file)) == (0, [])
+
+
 def test_a_staged_deletion_of_another_kind_leaves_a_kind_untouched(charter, make_kb):
     notes = {f"notes/{n}.md": f"---\nkind: entry\nid: {n}\n---\n" for n in (1, 3)}
     kb = _committed(make_kb, {"charter.yaml": CONTIGUOUS, **notes, "notes/x.md": "---\nkind: other\n---\n"})

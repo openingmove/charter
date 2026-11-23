@@ -85,6 +85,13 @@ class _Git:
         found = self._run(["rev-parse", "--verify", "--quiet", f"{revision}^{{commit}}"], b"")
         return found.stdout.decode("ascii").strip() if found.returncode == 0 else None
 
+    def holds_file(self, name: str) -> bool:
+        """Whether the index or `HEAD` holds a file at `name`, relative to the directory git runs in. False
+        outside a repository and for a folder."""
+        # `./` makes the name relative to the directory git runs in, rather than to the top of the working tree.
+        found = (self._run(["cat-file", "-t", f"{tree}:./{name}"], b"") for tree in ("", "HEAD"))
+        return any(finished.stdout.strip() == b"blob" for finished in found)
+
     def objects(self, object_ids: Sequence[str]) -> list[bytes]:
         if not object_ids:
             return []
@@ -329,12 +336,8 @@ def tracks(file: Path) -> bool:
     folder = next((parent for parent in absolute.parents if parent.is_dir()), None)
     if folder is None:
         return False
-    # `./` makes the name relative to the folder git runs in, rather than to the top of the working tree.
-    name = "./" + absolute.relative_to(folder).as_posix()
-    git = _Git(folder)
     try:
-        found = (git._run(["cat-file", "-t", f"{tree}:{name}"], b"") for tree in ("", "HEAD"))
-        return any(finished.stdout.strip() == b"blob" for finished in found)
+        return _Git(folder).holds_file(absolute.relative_to(folder).as_posix())
     except GitUnavailable:
         return False
 
