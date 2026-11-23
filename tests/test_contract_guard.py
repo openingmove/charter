@@ -401,8 +401,9 @@ def test_a_deeply_nested_event_never_blocks(kb, capsys, monkeypatch, tmp_path):
 
     result = run_hook(capsys, monkeypatch, ["pre-tool-use"], data, kb)
 
-    # Python 3.13 and earlier cannot parse this nesting, so the hook crashes; Python 3.14 parses it,
-    # finds no tool call in a list, and stays silent. Either way the call is never blocked.
+    # Whether the hook crashes or stays silent depends on the Python version and on the C stack depth
+    # of the platform. Where the parser runs out of depth, the hook crashes. Where it parses the
+    # nesting, it finds no tool call in a list and stays silent. Either way the call is never blocked.
     if result.exit_code == 1:
         crashed(result)
     else:
