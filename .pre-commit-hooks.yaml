@@ -1,6 +1,9 @@
 - id: charter
   name: charter validate
-  description: Validate the staged files of a Markdown knowledge base against its charter.yaml contract.
+  description: >-
+    Validate the staged files of a Markdown knowledge base against its charter.yaml contract.
+    Install it with charter-commit-msg: it passes --commit-msg-installed, so it leaves edit policies to that hook,
+    and without it they are never judged.
   entry: charter validate --staged --commit-msg-installed
   language: python
   stages: [pre-commit]
@@ -8,7 +11,9 @@
   always_run: true
 - id: charter-commit-msg
   name: charter edit policies
-  description: Check the edit policies of the staged change, honouring Charter-Allow trailers in the commit message.
+  description: >-
+    Check the edit policies of the staged change, honouring Charter-Allow trailers in the commit message.
+    Install it with the charter hook, which leaves edit policies to this one.
   entry: charter validate --staged --commit-msg
   language: python
   stages: [commit-msg]
