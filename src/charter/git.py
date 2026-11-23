@@ -365,7 +365,7 @@ def _trailer_pairs(parsed: bytes) -> list[tuple[str, str]]:
     # Not `str.splitlines()`, which also breaks at U+2028, U+0085, FF and VT: a path may hold those. git ends
     # a trailer with LF; a CR still ends one, as it always has here.
     lines = _LINE_END.split(text)
-    if lines[-1] == "":
+    if lines[-1] == "":  # The final line end leaves an empty last item; drop it, as `splitlines()` would.
         lines.pop()
     for line in lines:
         key, _, value = line.partition(":")

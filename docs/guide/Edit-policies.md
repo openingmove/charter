@@ -18,6 +18,12 @@ The trailer names the diagnostic's code and path exactly as charter reports them
 
 Because the trailer lives in the commit message, edit policies are judged at git's `commit-msg` stage: `charter validate --staged --commit-msg FILE` checks only edit policies, honouring the trailers in `FILE`, while `charter validate --staged`, for the `pre-commit` stage, checks everything else and, when the contract declares an `edit` policy, says so with a `paths/edit-deferred` info, so a setup with only a pre-commit hook notices. The hooks this repository ships ([Git hooks](Git-hooks.md)) pass `--commit-msg-installed`, because they come with their commit-msg partner, and the info is then left out of a commit's output; a bare `charter validate --staged` still prints it. `--commit-msg` needs `--staged`. CI judges commits the same way with `--range` (see [Validating](Commands.md#validating)), reading each commit's own trailers. Trailers take effect only in those two; plain and `--file` runs report edit policies without them. `--strict` leaves an overridden violation and an `override/unused` warning as warnings: each records a human's decision rather than something to fix.
 
+### Paths a trailer cannot allow
+
+A `Charter-Allow` trailer cannot name every path. For these paths, the trailer allows nothing: charter reports the original violation and an `override/unused` warning for the trailer. To make the edit, rename the file first.
+
+- A path that ends in whitespace, for example a space, a tab, a line separator (U+2028), a next-line character (U+0085), a form feed or a vertical tab. charter removes every whitespace character from the end of the path, so the trailer names a different path.
+
 ## The `updated-date` check
 
 The optional `updated-date` check keeps a note's last-changed date honest. It is off until the contract switches it on:

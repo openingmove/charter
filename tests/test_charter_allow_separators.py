@@ -2,6 +2,8 @@ import pytest
 from conftest import run_git, validate_commit_msg
 from hostile_names import git_tree_with_paths
 
+from charter import git
+
 # Built with chr() so no invisible character sits in this source file. str.splitlines() splits on every one.
 SEPARATORS = [chr(code) for code in (0x2028, 0x85, 0x0C, 0x0B)]
 IDS = [f"U+{ord(c):04X}" for c in SEPARATORS]
@@ -50,3 +52,13 @@ def test_a_crlf_message_allows_a_path_containing_a_line_separator(charter, make_
     result = validate_commit_msg(charter, kb, message.encode())
 
     assert [(d["code"], d["severity"]) for d in result.json()["diagnostics"]] == [("paths/read-only", "warning")]
+
+
+def test_a_lone_cr_ends_a_trailer():
+    # `trailers()` turns CRLF into LF before git parses the message, so only a lone CR reaches the parser.
+    parsed = b"Charter-Allow: paths/read-only notes/a.md \xe2\x80\x94 typo\rSigned-off-by: A <a@example.com>\n"
+
+    assert git._trailer_pairs(parsed) == [
+        ("Charter-Allow", "paths/read-only notes/a.md \u2014 typo"),
+        ("Signed-off-by", "A <a@example.com>"),
+    ]
