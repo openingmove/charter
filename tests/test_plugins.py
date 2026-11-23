@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import shutil
 import time
 
@@ -304,6 +305,15 @@ LEAVE_CHILD_TIMEOUT_MS = 10000
 # The leftover child must outlive the last `gone_within` check by a clear margin; otherwise a test could pass
 # because the child ended by itself, not because charter ended it.
 assert LEAVE_CHILD_TIMEOUT_MS / 1000 + GONE_WITHIN_SECONDS <= LEFTOVER_SECONDS - 5
+
+
+def test_every_child_the_misbehave_plugin_starts_sleeps_for_leftover_seconds():
+    # A plugin cannot import LEFTOVER_SECONDS, so the fixture repeats it as a literal; this keeps the two equal.
+    source = (FIXTURES / "plugins" / "misbehave" / "misbehave.py").read_text(encoding="utf-8")
+    child_sleeps = re.findall(r'"import time; time\.sleep\((\d+)\)"', source)
+
+    assert len(child_sleeps) == 2
+    assert child_sleeps == [str(LEFTOVER_SECONDS)] * 2
 
 
 def _leave_child_kb(kb, behaviour):
