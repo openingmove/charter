@@ -15,9 +15,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: openingmove/charter@v0.2.1
+      - uses: openingmove/charter@v0.3.0
         with:
-          ref: v0.2.1
+          ref: v0.3.0
 ```
 
 Give `ref` the same tag as `uses`. `uses` picks the action's own files; `ref` picks the charter it installs, and without it that is `main`.

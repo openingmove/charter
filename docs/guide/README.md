@@ -14,7 +14,7 @@ Editor-agnostic: plain Markdown with YAML frontmatter, Markdown links and/or `[[
 
 > **Beta.** charter is under active development. The command line, the contract format (`charter: 1`) and the skills may still change before 1.0; read the release notes before you upgrade, and pin a release tag in CI.
 >
-> Status: version 0.2.1, installed from this repository (not on PyPI). Delivered: the command line (`init`, `new`, `validate`, `describe`, `sweep`, `docs`, `survey`, `snapshot`, `plugin`), the optional agent, git and CI layers, and the Establish, Migrate and Evolve skills.
+> Status: version 0.3.0, installed from this repository (not on PyPI). Delivered: the command line (`init`, `new`, `validate`, `describe`, `sweep`, `docs`, `survey`, `snapshot`, `plugin`), the optional agent, git and CI layers, and the Establish, Migrate and Evolve skills.
 
 ## Pages
 
