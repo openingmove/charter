@@ -4,6 +4,15 @@ Each release of charter has a section here, newest first. The section for a vers
 
 ## Unreleased
 
+## 0.3.0 - 2026-11-24
+
+### Upgrade notes
+
+- Upgrade the command line tool together with the plugin: `uv tool upgrade charter`. In the GitHub Action, move both `uses: openingmove/charter@v0.3.0` and `ref: v0.3.0` to the new tag.
+- `charter new` can now exit `1` and write nothing where it used to write the note: when the note breaks its kind's `collection`. A script that calls `charter new` must handle that exit code.
+- The contract guard now fails closed. In a session that did not start Establish, Evolve or Migrate, Claude Code can now be denied a call on `charter.yaml` that went through before, because charter could not check it. The reason in the denial names the error.
+- A plugin whose `docs` or manifest file name differs in letter case from the file on disk is now `contract/invalid` on every file system. Correct the name in the manifest.
+
 ### Changed
 
 - charter supports every Python version that is not end-of-life: today 3.11, 3.12, 3.13, 3.14 and 3.15. A version is dropped when it reaches end-of-life (3.11: October 2027). CI now tests all five on Linux, and 3.11 and 3.15 on macOS and Windows. See [Install](docs/guide/Install.md).
@@ -33,7 +42,6 @@ Each release of charter has a section here, newest first. The section for a vers
 - [Validating](docs/guide/Commands.md#validating) explains how output shows a path that is not valid UTF-8: each such byte is written as `\xNN`. The escape is for reading only, and diagnostics sort by the escaped path. A `Charter-Allow` trailer cannot allow such a path, and [Edit policies](docs/guide/Edit-policies.md#paths-a-trailer-cannot-allow) now lists it: rename the file.
 - The README and the descriptions of the shipped pre-commit hooks now say that `charter` and `charter-commit-msg` go together. The `charter` hook passes `--commit-msg-installed`, so it leaves edit policies and `protected-region` to `charter-commit-msg` without saying so; with only the `charter` hook installed, those checks are never judged. See [Git hooks](docs/guide/Git-hooks.md).
 - [The contract guard](docs/guide/Contract-guard.md) names the marker file it writes for a session: `sessions/<sha256 of the session id>.json` in the per-user state folder.
-
 - The install command names `@main`, the branch that holds the latest release. [Install](docs/guide/Install.md) shows how to pin one release instead.
 - [Plugins](docs/guide/Plugins.md) no longer describes the `needs: [body]` rule for linked notes as new. charter 0.2.0 already applied it.
 

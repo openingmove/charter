@@ -10,7 +10,7 @@ charter supports every Python version that is not end-of-life (today 3.11 to 3.1
 uv tool install git+https://github.com/openingmove/charter@main
 ```
 
-`main` holds the latest release, and uv remembers the branch, so an upgrade moves to the next release. To pin one release, name its tag instead, such as `@v0.2.1` (the tags are on the Releases page).
+`main` holds the latest release, and uv remembers the branch, so an upgrade moves to the next release. To pin one release, name its tag instead, such as `@v0.3.0` (the tags are on the Releases page).
 
 For a local checkout, give its path instead: `uv tool install /path/to/charter`, or `uv tool install C:\src\charter` on Windows.
 
