@@ -14,8 +14,12 @@ _PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 _STILL_ACTIVE = 259
 
 # A process charter left behind sleeps this long, so a test that fails leaves nothing running for long.
-# tests/fixtures/plugins/misbehave/misbehave.py repeats this value as a literal, since a plugin cannot import it.
+# tests/fixtures/plugins/misbehave/misbehave.py repeats this value as a literal, since a plugin cannot import it;
+# a test in tests/test_plugins.py fails when the two differ.
 LEFTOVER_SECONDS = 30
+
+# How long `gone_within` waits by default for a process to end.
+GONE_WITHIN_SECONDS = 10.0
 
 
 def windows_only():
@@ -71,7 +75,7 @@ def _state_posix(pid):
     return result.stdout.strip()[:1] or None
 
 
-def gone_within(pid, seconds=10.0):
+def gone_within(pid, seconds=GONE_WITHIN_SECONDS):
     """Whether the process `pid` has ended, or ends within `seconds`."""
     deadline = time.monotonic() + seconds
     while alive(pid):

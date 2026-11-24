@@ -10,13 +10,13 @@ import json
 import posixpath
 from typing import Any
 
-from charter import __version__
+from charter import __version__, git
 from charter.checks import CheckRequest
 from charter.diagnostics import PLUGIN_FAILED, PLUGIN_MODIFIED, PLUGIN_SKIPPED_PATH, Diagnostic, Severity
 from charter.files import contract_relative
 from charter.history import EditDelta
-from charter.index import Note
-from charter.lock import LOCK_FILENAME, symlink_reason
+from charter.index import Note, kinds_before
+from charter.lock import LOCK_FILENAME, SYMLINK_HINT, symlink_reason
 from charter.output import printable
 from charter.plugin import Plugin
 from charter.process import run_bounded
@@ -76,16 +76,20 @@ class PluginCheck:
         if request.per_edit and not plugin.hook:
             return []
         if plugin.triggers is not None:
-            # A trigger sees only the targets the plugin would be sent, so a glob that matches nothing but paths that
-            # are not valid UTF-8 does not start the plugin with no targets. The user still learns those paths were
-            # not checked: each one the glob matches is reported as `plugin/skipped-path`.
+            # A trigger sees only the targets the plugin would be sent, and no kind that only the other targets
+            # bring, so a glob or a kind that matches nothing but paths that are not valid UTF-8 does not start the
+            # plugin with no targets. The user still learns those paths were not checked: each one the trigger
+            # matches is reported as `plugin/skipped-path`, unless the plugin could not have run anyway.
             targets, skipped = _split_utf8([note.path for note in request.target_notes()])
-            if not plugin.triggers.fire(request.kinds, [_local(request, path) for path in targets]):
-                return [
-                    self._skipped(path)
+            if not plugin.triggers.fire(_sent_kinds(request, targets, skipped), [_local(request, p) for p in targets]):
+                matched = [
+                    path
                     for path in sorted(skipped)
-                    if plugin.triggers.fire(frozenset(), [_local(request, path)])
+                    if plugin.triggers.fire(_kinds_of(request, [path]), [_local(request, path)])
                 ]
+                if not matched:
+                    return []
+                return self._broken(request) or [self._skipped(path) for path in matched]
         return self.invoke(request)
 
     def invoke(self, request: CheckRequest) -> list[Diagnostic]:
@@ -93,37 +97,45 @@ class PluginCheck:
 
         A locked plugin whose directory no longer matches its hash is not run at all: `plugin/modified`.
         """
-        plugin = self.plugin
-        if plugin.unavailable is not None:
-            what = f"could not be run: its files in `{plugin.source}` could not be written out ({plugin.unavailable})."
-            return [self._failure(request, _Failed(what))]
-        # A link is reported instead of the hash mismatch it causes, in the same words whether it is in the
-        # working copy or in the index.
-        if plugin.links:
-            reasons = [f"`{plugin.source}` {symlink_reason(link)}" for link in plugin.links]
-        elif plugin.modified:
-            reasons = [f"the files in `{plugin.source}` no longer match the sha256 recorded for it in `{LOCK_FILENAME}`."]
-        else:
-            reasons = []
-        if reasons:
-            return [
-                Diagnostic(
-                    request.contract.file,
-                    plugin.line,
-                    Severity.ERROR,
-                    PLUGIN_MODIFIED,
-                    f"Plugin `{self.id}` was not run: {reason}",
-                    f"Restore `{plugin.source}` from version control, or install the plugin again with "
-                    "`charter plugin add`.",
-                )
-                for reason in reasons
-            ]
+        broken = self._broken(request)
+        if broken:
+            return broken
         payload, skipped = self._payload(request)
         warnings = [self._skipped(path) for path in sorted(skipped)]
         try:
             return warnings + self._diagnostics(request, payload)
         except _Failed as failure:
             return [*warnings, self._failure(request, failure)]
+
+    def _broken(self, request: CheckRequest) -> list[Diagnostic]:
+        """Why the plugin cannot be run (`plugin/failed`, `plugin/modified`), or nothing when it can."""
+        plugin = self.plugin
+        if plugin.unavailable is not None:
+            what = f"could not be run: its files in `{plugin.source}` could not be written out ({plugin.unavailable})."
+            return [self._failure(request, _Failed(what))]
+        # Links are reported in one diagnostic, in the same words whether they are in the working copy or in the
+        # index. The hash leaves them out, so a mismatch is reported for any other change. A link that takes the place
+        # of a locked file is such a change too: the file is missing from the hash, so it also gives the mismatch.
+        reasons = []
+        if plugin.links:
+            reasons.append((f"`{plugin.source}` {symlink_reason(plugin.links)}", SYMLINK_HINT))
+        if plugin.modified:
+            reasons.append((
+                f"the files in `{plugin.source}` no longer match the sha256 recorded for it in `{LOCK_FILENAME}`.",
+                f"Restore `{plugin.source}` from version control, or install the plugin again with "
+                "`charter plugin add`.",
+            ))
+        return [
+            Diagnostic(
+                request.contract.file,
+                plugin.line,
+                Severity.ERROR,
+                PLUGIN_MODIFIED,
+                f"Plugin `{self.id}` was not run: {reason}",
+                hint,
+            )
+            for reason, hint in reasons
+        ]
 
     def payload(self, request: CheckRequest) -> str:
         """The `charter-plugin/1` request, as the JSON text the plugin reads on stdin."""
@@ -245,8 +257,18 @@ class PluginCheck:
     def _spawn(self, payload: bytes) -> tuple[bytes, bytes]:
         plugin = self.plugin
         try:
+            # Finding the working tree for a GIT_DIR alone runs git, which may fail to start.
+            environment = git.environment()
+        except git.GitError as error:
+            raise _Failed(f"could not be given its environment: {error.message}") from None
+        try:
             finished = run_bounded(
-                plugin.run, plugin.directory, payload, timeout=plugin.timeout_ms / 1000, limit=_OUTPUT_LIMIT
+                plugin.run,
+                plugin.directory,
+                payload,
+                timeout=plugin.timeout_ms / 1000,
+                limit=_OUTPUT_LIMIT,
+                env=environment,
             )
         except OSError as error:
             raise _Failed(f"could not start `{plugin.run[0]}`: {error.strerror or error}.") from None
@@ -275,6 +297,24 @@ class PluginCheck:
 def _local(request: CheckRequest, path: str) -> str:
     """`path`, in diagnostic form, as the protocol gives it: relative to the knowledge-base root."""
     return posixpath.relpath(path, request.contract.root_path)
+
+
+def _kinds_of(request: CheckRequest, paths: list[str]) -> frozenset[str]:
+    """The kinds of the notes at `paths`."""
+    kinds = (request.contract.kind_of(note.frontmatter) for note in request.notes if note.path in paths)
+    return frozenset(kind.name for kind in kinds if kind is not None)
+
+
+def _sent_kinds(request: CheckRequest, targets: list[str], skipped: list[str]) -> frozenset[str]:
+    """The kinds the run touches, less each kind that only the skipped targets bring: no target the plugin is sent
+    has it, and, where the run knows the earlier version, no note other than the skipped ones had it before the
+    change. A kind a skipped note had before the change is left out too."""
+    if not skipped or request.contract.file in request.targets:
+        return request.kinds
+    kept = _kinds_of(request, targets)
+    if isinstance(request.history, EditDelta):
+        kept |= kinds_before(request.contract, request.history.before, frozenset(skipped))
+    return request.kinds - (_kinds_of(request, skipped) - kept)
 
 
 def _before(request: CheckRequest) -> tuple[dict[str, Any], set[str]]:

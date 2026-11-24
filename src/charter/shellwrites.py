@@ -21,8 +21,6 @@ _WRAPPERS = {"sudo", "env", "command", "nohup", "time", "exec", "xargs", "doas"}
 _WRITE_ALL = {"tee", "rm", "unlink", "truncate", "touch", "shred"}
 # Commands that write the last file they name, or the file of a source's name inside it when it is a folder.
 _WRITE_LAST = {"cp", "mv", "install", "ln", "rsync"}
-# Commands of _WRITE_LAST that also remove their sources.
-_MOVES = {"mv"}
 # Interpreters whose inline code (`-c`, `-e`) is opaque: naming a file there counts as writing it. Python matches
 # with any version suffix (`python`, `python3`, `python3.13`).
 _PYTHON = re.compile(r"python(\d+(\.\d+)?)?")
@@ -114,10 +112,11 @@ def _command_writes(words: list[str], cwd: Path, wanted: Callable[[str], bool]) 
         yield from operands
     elif name in _WRITE_LAST and operands:
         *sources, target = operands
-        if name in _MOVES:
+        if name == "mv":
+            # A move also removes its sources.
             yield from sources
         yield target
-        if resolve(cwd, target).is_dir():
+        if _is_dir(cwd, target):
             yield from (f"{target.rstrip('/')}/{Path(source).name}" for source in sources)
     elif name == "dd":
         yield from (arg[3:] for arg in args if arg.startswith("of="))
@@ -132,6 +131,15 @@ def _command_writes(words: list[str], cwd: Path, wanted: Callable[[str], bool]) 
     elif name in _SHELLS and "-c" in args:
         code = args[args.index("-c") + 1] if args.index("-c") + 1 < len(args) else ""
         yield from (str(path) for path in written(code, cwd, wanted))
+
+
+def _is_dir(cwd: Path, target: str) -> bool:
+    # A target the system cannot resolve or check, such as an overlong name or the home folder of an unknown user
+    # (`~nosuchuser`), is no folder; the sources already yielded stand.
+    try:
+        return resolve(cwd, target).is_dir()
+    except (OSError, ValueError, RuntimeError):
+        return False
 
 
 def _perl_i(arg: str) -> bool:

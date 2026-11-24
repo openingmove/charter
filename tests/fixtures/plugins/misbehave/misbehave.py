@@ -5,11 +5,13 @@
 """Breaks the plugin protocol in the way the `behaviour` parameter names."""
 
 import json
+import os
 import subprocess
 import sys
 import time
 
-behaviour = json.loads(sys.stdin.buffer.read().decode("utf-8"))["params"]["behaviour"]
+request = json.loads(sys.stdin.buffer.read().decode("utf-8"))
+behaviour = request["params"]["behaviour"]
 
 
 def respond(diagnostics, protocol="charter-plugin/1"):
@@ -20,9 +22,11 @@ def diagnostic(**changes):
     return {"path": "a.md", "line": 1, "severity": "error", "code": "misbehave/found", "message": "Found.", **changes}
 
 
-if behaviour == "crash":
+if behaviour == "crash" or (behaviour == "crash-on-fresh" and "Fresh.md" in request["targets"]):
     sys.stderr.write("misbehave: could not read the traversal table\n")
     sys.exit(4)
+elif behaviour == "crash-on-fresh":
+    respond([])
 elif behaviour == "noisy-crash":
     sys.stderr.write("noise " * 5000 + "\nthe real cause\n")
     sys.exit(1)
@@ -50,10 +54,12 @@ elif behaviour == "orphan":
     time.sleep(60)
 elif behaviour.startswith("leave-child"):
     # A process that outlives the plugin unless charter ends it; its pid goes to `child.pid` for the test.
-    # The 30 matches LEFTOVER_SECONDS in tests/process_support.py; a plugin cannot import it, so keep them equal.
+    # The 30 matches LEFTOVER_SECONDS in tests/process_support.py; a plugin cannot import it, so a test checks them.
     child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
-    with open("child.pid", "w", encoding="utf-8") as pid_file:
+    # Written to a temporary file and moved into place, so a kill mid-write never leaves an empty `child.pid`.
+    with open("child.pid.tmp", "w", encoding="utf-8") as pid_file:
         pid_file.write(str(child.pid))
+    os.replace("child.pid.tmp", "child.pid")
     if behaviour == "leave-child-and-hang":
         time.sleep(60)
     elif behaviour == "leave-child-and-flood":

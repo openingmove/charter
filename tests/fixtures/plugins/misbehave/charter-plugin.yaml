@@ -7,5 +7,5 @@ timeout_ms: 4000
 config_schema:
   type: object
   properties:
-    behaviour: {enum: [crash, noisy-crash, hang, not-json, wrong-protocol, malformed-diagnostic, foreign-code, escaping-path, backslash-path, drive-path, flood, orphan, leave-child, leave-child-and-hang, leave-child-and-flood, bom]}
+    behaviour: {enum: [crash, crash-on-fresh, noisy-crash, hang, not-json, wrong-protocol, malformed-diagnostic, foreign-code, escaping-path, backslash-path, drive-path, flood, orphan, leave-child, leave-child-and-hang, leave-child-and-flood, bom]}
   required: [behaviour]

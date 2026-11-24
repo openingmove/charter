@@ -6,7 +6,6 @@ import posixpath
 import re
 import stat
 import tempfile
-import unicodedata
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -14,9 +13,8 @@ from typing import Generic, TypeVar
 
 from charter.files import remove_tree
 from charter.history import EditDelta, NoHistory
-from charter.lock import IGNORED_NAMES
 from charter.process import Finished, run_bounded
-from charter.tree import Tree
+from charter.tree import Tree, plugin_name
 
 # Generous: git's own output, never a plugin's, but a runaway must not exhaust memory.
 _OUTPUT_LIMIT = 1024 * 1024 * 1024
@@ -53,7 +51,7 @@ class _Git:
 
     def __init__(self, base_dir: Path):
         self.base_dir = base_dir
-        self.environment = _environment()
+        self.environment = environment()
 
     def run(self, *args: str, stdin: bytes = b"") -> bytes:
         finished = self._run(args, stdin)
@@ -86,6 +84,13 @@ class _Git:
         """The id of the commit `revision` names; None when it names none."""
         found = self._run(["rev-parse", "--verify", "--quiet", f"{revision}^{{commit}}"], b"")
         return found.stdout.decode("ascii").strip() if found.returncode == 0 else None
+
+    def holds_file(self, name: str) -> bool:
+        """Whether the index or `HEAD` holds a file at `name`, relative to the directory git runs in. False
+        outside a repository and for a folder."""
+        # `./` makes the name relative to the directory git runs in, rather than to the top of the working tree.
+        found = (self._run(["cat-file", "-t", f"{tree}:./{name}"], b"") for tree in ("", "HEAD"))
+        return any(finished.stdout.strip() == b"blob" for finished in found)
 
     def objects(self, object_ids: Sequence[str]) -> list[bytes]:
         if not object_ids:
@@ -122,7 +127,7 @@ class GitTree:
         self._git = git
         self._blobs = _resolved(git, entries)
         # Kept from the entries, which `_blobs` has resolved away: a link is told by its mode alone.
-        self._links = sorted(path for path, (mode, _) in entries.items() if mode == _SYMLINK)
+        self._links = [path for path, (mode, _) in entries.items() if mode == _SYMLINK]
         self._directories = {parent for path in self._blobs for parent in _parents(path)}
         self._contents: dict[str, bytes] = {}
         self._scratch: Path | None = None
@@ -169,13 +174,9 @@ class GitTree:
 
     def symlinks(self, path: str) -> list[str]:
         prefix = "" if path == "." else f"{path}/"
-        relatives = (link.removeprefix(prefix) for link in self._links if link.startswith(prefix))
-        # The same names, in the same form, as the working copy's `lock.symlinks_in`.
-        return sorted(
-            unicodedata.normalize("NFC", relative)
-            for relative in relatives
-            if IGNORED_NAMES.isdisjoint(relative.split("/"))
-        )
+        names = (plugin_name(link.removeprefix(prefix)) for link in self._links if link.startswith(prefix))
+        # The same names, in the same form, as the working copy's `tree.symlinks_in`.
+        return sorted(name for name in names if name is not None)
 
     def close(self) -> list[Path]:
         """Removes the temporary directory; returns what could not be deleted."""
@@ -328,6 +329,19 @@ def uncommitted(base_dir: Path, working: Tree, paths: Collection[str] | None = N
     return EditDelta(_before(git, deltas), working, added)
 
 
+def tracks(file: Path) -> bool:
+    """Whether git's index or `HEAD` holds a file at `file` (relative to the working directory, or absolute).
+    False outside a repository, where git is not installed, and for a folder."""
+    absolute = Path(os.path.abspath(file))
+    folder = next((parent for parent in absolute.parents if parent.is_dir()), None)
+    if folder is None:
+        return False
+    try:
+        return _Git(folder).holds_file(absolute.relative_to(folder).as_posix())
+    except GitUnavailable:
+        return False
+
+
 def trailers(base_dir: Path, message: bytes) -> list[tuple[str, str]]:
     """The trailers of commit message `message` as git reads them, as (key, value) pairs: only the final
     trailer block, without comment lines or anything below a `--verbose` scissors line, continuation lines
@@ -351,7 +365,7 @@ def _trailer_pairs(parsed: bytes) -> list[tuple[str, str]]:
     # Not `str.splitlines()`, which also breaks at U+2028, U+0085, FF and VT: a path may hold those. git ends
     # a trailer with LF; a CR still ends one, as it always has here.
     lines = _LINE_END.split(text)
-    if lines[-1] == "":
+    if lines[-1] == "":  # The final line end leaves an empty last item; drop it, as `splitlines()` would.
         lines.pop()
     for line in lines:
         key, _, value = line.partition(":")
@@ -582,9 +596,10 @@ def _run_git(args: Sequence[str], cwd: Path, stdin: bytes, environment: Mapping[
         raise GitUnavailable(f"git could not be run: {error.strerror or error}.") from None
 
 
-def _environment() -> dict[str, str]:
+def environment() -> dict[str, str]:
     """charter's environment, with git's paths made absolute: a commit hook runs at the top of the working tree
-    and may set them relative to it, but charter runs git from the directory holding charter.yaml."""
+    and may set them relative to it, but charter runs git from the directory holding charter.yaml, and plugins from
+    their own directories."""
     environment = dict(os.environ)
     for name in _PATH_VARIABLES:
         if environment.get(name):

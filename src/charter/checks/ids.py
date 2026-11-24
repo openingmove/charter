@@ -1,17 +1,20 @@
 """The `ids` check: `unique` values are unique across a kind, and a kind's `collection` is complete."""
 
 import math
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 
 from charter.checks import CheckRequest
 from charter.collection import Member, holders, members_by_kind
-from charter.contract import Kind
+from charter.contract import Contract, Kind
 from charter.diagnostics import Diagnostic, Severity, code_list, yaml_text
 from charter.fields import Field
+from charter.index import Note
 
 DUPLICATE = "ids/duplicate"
 COUNT = "ids/count"
 GAP = "ids/gap"
+# The codes about a kind's notes taken together, reported on the contract at the kind's `collection`.
+COLLECTION_CODES = frozenset({COUNT, GAP})
 # A run this long is counted, not listed end to end, so a typo like `50000000` stays readable.
 _LONG_RUN = 1000
 
@@ -30,6 +33,14 @@ class IdsCheck:
                 yield from _duplicates(kind, field, grouped[kind.name], request.targets)
             if kind.collection is not None and kind.name in request.kinds:
                 yield from _incomplete(kind, declared, grouped[kind.name], contract.file)
+
+
+def collection_findings(contract: Contract, kind: Kind, notes: Iterable[Note]) -> list[Diagnostic]:
+    """The `ids/count` and `ids/gap` findings for `kind`'s `collection`, judged against `notes`."""
+    if kind.collection is None:
+        return []
+    members = members_by_kind(contract, notes)[kind.name]
+    return list(_incomplete(kind, contract.kind_fields(kind), members, contract.file))
 
 
 def _unique_fields(kind: Kind, declared: dict[str, Field]) -> list[str]:

@@ -14,7 +14,7 @@ checks:
   schema: {enabled: false}           # turn a check off
 ```
 
-Profile values are `error`, `warning`, `info` or `off`. A key must be a check id or a diagnostic code one of the checks reports. Built-in defaults only ever lower a severity; a declared profile sets exactly what it says. `--strict` turns the remaining warnings into errors, except those a `Charter-Allow` trailer accounts for (an allowed violation, `override/unused`). An unknown profile name, or a `--file` path that does not exist, is a usage error (exit `2`) reported as a diagnostic in the requested format.
+Profile values are `error`, `warning`, `info` or `off`. A key must be a check id or a diagnostic code one of the checks reports. Built-in defaults only ever lower a severity; a declared profile sets exactly what it says. `--strict` turns the remaining warnings into errors, except those a `Charter-Allow` trailer accounts for (an allowed violation, `override/unused`). An unknown profile name, or a `--file` path that does not exist and that git does not track, is a usage error (exit `2`) reported as a diagnostic in the requested format.
 
 Each diagnostic carries `path`, `line`, `severity`, `code`, `message` and `hint`. Paths are relative to the directory holding `charter.yaml`.
 

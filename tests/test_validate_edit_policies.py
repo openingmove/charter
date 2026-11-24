@@ -158,6 +158,60 @@ def test_file_runs_judge_only_the_named_files(charter, make_kb):
     assert _codes(result) == [("notes/Research/topic.md", "error", "paths/create-only")]
 
 
+def test_a_file_run_on_a_deleted_tracked_file_judges_the_deletion(charter, make_kb):
+    kb = _committed(make_kb)
+    (kb / "notes/Archive/gone.md").unlink()
+
+    result = _validate(charter, kb, "--file", "notes/Archive/gone.md")
+
+    assert result.exit_code == 1
+    assert _codes(result) == [("notes/Archive/gone.md", "error", "paths/read-only")]
+    assert "deleted" in result.json()["diagnostics"][0]["message"]
+
+
+def test_a_file_run_on_a_tracked_file_removed_with_its_folder_and_from_the_index_judges_the_deletion(
+    charter, make_kb
+):
+    kb = _committed(make_kb)
+    run_git(kb, "rm", "-q", "-r", "notes/Archive")
+
+    result = _validate(charter, kb, "--file", "notes/Archive/gone.md")
+
+    assert _codes(result) == [("notes/Archive/gone.md", "error", "paths/read-only")]
+
+
+@pytest.mark.parametrize("name", ["notes/free.md", "notes/Research/Scratch/pad.md"])
+def test_a_file_run_on_a_deleted_tracked_file_no_policy_covers_passes(charter, make_kb, name):
+    kb = _committed(make_kb)
+    (kb / name).unlink()
+
+    result = _validate(charter, kb, "--file", name)
+
+    assert (result.exit_code, _codes(result)) == (0, [])
+
+
+@pytest.mark.parametrize("name", ["notes/Archive/never.md", "notes/Archive"])
+def test_a_file_run_on_a_missing_untracked_path_or_a_deleted_folder_is_a_usage_error(charter, make_kb, name):
+    kb = _committed(make_kb)
+    if name == "notes/Archive":
+        run_git(kb, "rm", "-q", "-r", name)
+
+    result = _validate(charter, kb, "--file", name)
+
+    assert result.exit_code == 2
+    assert _codes(result) == [(name, "error", "usage/file-not-found")]
+
+
+def test_a_file_run_on_a_missing_path_outside_git_is_a_usage_error(charter, make_kb):
+    kb = make_kb(FILES)
+    (kb / "notes/Archive/gone.md").unlink()
+
+    result = _validate(charter, kb, "--file", "notes/Archive/gone.md")
+
+    assert result.exit_code == 2
+    assert _codes(result) == [("notes/Archive/gone.md", "error", "usage/file-not-found")]
+
+
 def test_file_runs_read_names_literally(charter, make_kb):
     kb = _committed(make_kb, {**FILES, "notes/Archive/[a].md": NOTE, "notes/Archive/a.md": NOTE})
     write_files(kb, {"notes/Archive/a.md": EDITED})

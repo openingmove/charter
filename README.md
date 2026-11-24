@@ -21,7 +21,7 @@ Editor-agnostic: plain Markdown with YAML frontmatter, Markdown links and/or `[[
 
 > **Beta.** charter is under active development. The command line, the contract format (`charter: 1`) and the skills may still change before 1.0; read the release notes before you upgrade, and pin a release tag in CI.
 >
-> Status: version 0.2.1, installed from this repository (not on PyPI). Delivered: the command line (`init`, `new`, `validate`, `describe`, `sweep`, `docs`, `survey`, `snapshot`, `plugin`), the optional agent, git and CI layers, and the Establish, Migrate and Evolve skills.
+> Status: version 0.3.0, installed from this repository (not on PyPI). Delivered: the command line (`init`, `new`, `validate`, `describe`, `sweep`, `docs`, `survey`, `snapshot`, `plugin`), the optional agent, git and CI layers, and the Establish, Migrate and Evolve skills.
 
 ## Documentation
 
@@ -29,13 +29,13 @@ The user manual is in [`docs/guide/`](docs/guide/README.md), and the same pages 
 
 ## Install
 
-charter needs Python 3.11 or later and installs with [uv](https://docs.astral.sh/uv/). It is not on PyPI yet, so install it from this repository, by git URL or from a local checkout:
+charter supports every Python version that is not end-of-life (today 3.11 to 3.15). A version is dropped when it reaches end-of-life. charter installs with [uv](https://docs.astral.sh/uv/). It is not on PyPI yet, so install it from this repository, by git URL or from a local checkout:
 
 ```
-uv tool install git+https://github.com/openingmove/charter
+uv tool install git+https://github.com/openingmove/charter@main
 ```
 
-Check it with `charter --version`. To upgrade, run `uv tool upgrade charter`. Local checkouts and versions: see [Install](docs/guide/Install.md).
+`main` holds the latest release. Check it with `charter --version`. To upgrade to the next release, run `uv tool upgrade charter`. Local checkouts and versions: see [Install](docs/guide/Install.md).
 
 ## Quick start
 
@@ -91,12 +91,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: openingmove/charter@v0.2.1
+      - uses: openingmove/charter@v0.3.0
         with:
-          ref: v0.2.1
+          ref: v0.3.0
 ```
 
 Give `ref` the same tag as `uses`. `uses` picks the action's own files; `ref` picks the charter it installs, and without it that is `main`. Inputs and the commit range: see [GitHub Action](docs/guide/GitHub-Action.md).
+
+## Git hooks
+
+charter ships two hooks for [pre-commit](https://pre-commit.com): `charter` (pre-commit stage) and `charter-commit-msg` (commit-msg stage). Install both: the `charter` hook passes `--commit-msg-installed`, so it leaves edit policies and `protected-region` to `charter-commit-msg`, so without it those checks never run. Setup, and plain git hooks without pre-commit: see [Git hooks](docs/guide/Git-hooks.md).
 
 ## Skills
 
@@ -106,10 +110,10 @@ Pick one route for your agent. Each skill checks `charter --version` first and i
 
 | Agent | Install |
 |---|---|
-| Claude Code | `/plugin marketplace add openingmove/charter`, then `/plugin install charter@charter` |
-| Codex | `codex plugin marketplace add openingmove/charter`, then install `charter` from `/plugins` |
+| Claude Code | `claude plugin marketplace add openingmove/charter`, then `claude plugin install charter@charter` (in a session, the `/plugin` commands should do the same) |
+| Codex | `codex plugin marketplace add openingmove/charter`, then `codex plugin add charter@charter` |
 | GitHub Copilot | `copilot plugin marketplace add openingmove/charter`, then `copilot plugin install charter@charter` |
-| Gemini CLI | `gemini skills install https://github.com/openingmove/charter.git --path skills` |
+| Gemini CLI | `gemini skills install https://github.com/openingmove/charter.git --path skills` (Gemini CLI 0.70.0 cannot clone it: install from a local checkout, see [The skills](docs/guide/Install.md#the-skills)) |
 | Any other agent | `npx skills@latest add openingmove/charter` (through [skills.sh](https://skills.sh)) |
 
 Do not install the same skills by two routes for one agent, or you will get each skill twice. Updates, local checkouts and the hooks of the contract guard: see [The skills](docs/guide/Install.md#the-skills).

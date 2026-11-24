@@ -337,6 +337,75 @@ def test_a_note_that_breaks_a_cross_note_rule_is_refused(charter, kb):
     assert not (kb / "docs/Things/1 B.md").exists()
 
 
+def _counted(contract=CONTRACT, kind="zone", count=1):
+    """`contract` with a `collection` of `count` notes on `kind`, declared at the end of the kind."""
+    return contract.replace(f"  {kind}:\n", f"  {kind}:\n    collection: {{count: {count}}}\n", 1)
+
+
+def _zone(title):
+    return f"---\nkind: zone\ntitle: {title}\n---\n"
+
+
+def test_a_note_that_pushes_a_collection_past_its_count_is_refused(charter, kb):
+    kb = kb({"Zones/North.md": _zone("North")}, contract=_counted())
+
+    result = _new(charter, kb, "zone", "South")
+
+    assert result.exit_code == 1
+    assert _found(result) == [("charter.yaml", "ids/count")]
+    assert not (kb / "docs/Zones/South.md").exists()
+
+
+def test_a_collection_already_past_its_count_does_not_block_an_unrelated_note(charter, kb):
+    kb = kb({"Zones/North.md": _zone("North"), "Zones/South.md": _zone("South")}, contract=_counted())
+
+    result = _new(charter, kb, "thing", "Lighthouse", "--set", "category=place")
+
+    assert result.exit_code == 0, result.stdout
+    assert (kb / "docs/Things/1 Lighthouse.md").is_file()
+
+
+def test_a_collection_already_past_its_count_does_not_block_a_note_of_its_own_kind(charter, kb):
+    kb = kb({"Zones/North.md": _zone("North"), "Zones/South.md": _zone("South")}, contract=_counted())
+
+    result = _new(charter, kb, "zone", "East")
+
+    assert result.exit_code == 0, result.stdout
+    assert (kb / "docs/Zones/East.md").is_file()
+
+
+def test_another_kind_past_its_count_does_not_hide_the_one_the_note_breaks(charter, kb):
+    contract = _counted(_counted(), kind="scratch")
+    kb = kb({"Zones/North.md": _zone("North")}, contract=contract)
+
+    result = _new(charter, kb, "zone", "South")
+
+    assert result.exit_code == 1
+    assert _found(result) == [("charter.yaml", "ids/count")]
+    assert "`zone` has 2 notes" in result.stdout
+    assert not (kb / "docs/Zones/South.md").exists()
+
+
+def test_a_note_that_leaves_a_gap_in_a_contiguous_collection_is_refused(charter, kb):
+    contract = CONTRACT.replace("  thing:\n", "  thing:\n    collection: {contiguous: id}\n", 1)
+    kb = kb({"Things/1 A.md": _thing(1, "A")}, contract=contract)
+
+    result = _new(charter, kb, "thing", "C", "--set", "category=place", "--set", "id=3")
+
+    assert result.exit_code == 1
+    assert _found(result) == [("charter.yaml", "ids/gap")]
+    assert not (kb / "docs/Things/3 C.md").exists()
+
+
+def test_a_dry_run_reports_the_collection_the_note_would_break(charter, kb):
+    kb = kb({"Zones/North.md": _zone("North")}, contract=_counted())
+
+    result = _new(charter, kb, "zone", "South", "--dry-run")
+
+    assert result.exit_code == 1
+    assert _found(result) == [("charter.yaml", "ids/count")]
+
+
 def test_a_broken_link_is_refused(charter, kb):
     kb = kb()
 
